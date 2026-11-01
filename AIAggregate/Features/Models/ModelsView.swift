@@ -2,104 +2,139 @@ import SwiftUI
 
 struct ModelsView: View {
     @EnvironmentObject var settings: AppSettings
-    @State private var keys: [Int: String] = [:]
-    @State private var saved: [Int: Bool] = [:]
-    @State private var savedHint: String?
+    @State private var keyText: String = ""
+    @State private var showKey = false
+    @State private var status: String?
+    @State private var isTesting = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("当前使用") {
-                    Picker("服务商", selection: $settings.selectedProviderIndex) {
+                Section {
+                    Picker("AI 服务商", selection: $settings.selectedProviderIndex) {
                         ForEach(Array(LLMProvider.builtin.enumerated()), id: \.offset) { idx, p in
-                            HStack {
-                                Text(p.name)
-                                if p.isLocal {
-                                    Text("局域网").font(.caption2).padding(2).background(.blue.opacity(0.2)).cornerRadius(4)
-                                }
-                            }.tag(idx)
+                            Text(p.name).tag(idx)
                         }
                     }
-                    let p = settings.provider
-                    LabeledContent("Base URL", value: p.defaultBaseURL)
-                    LabeledContent("默认模型", value: p.defaultModel)
-                    LabeledContent("Key 状态", value: saved[settings.selectedProviderIndex] == true ? "已保存" : (p.isLocal ? "本地可空" : "未填写"))
+                    .onChange(of: settings.selectedProviderIndex) { _, _ in
+                        loadKey()
+                        status = nil
+                    }
+                } header: {
+                    Text("选择服务商")
                 }
 
-                Section("API Key（保存在本机 Keychain，仅本设备可读）") {
-                    ForEach(Array(LLMProvider.builtin.enumerated()), id: \.offset) { idx, p in
-                        VStack(alignment: .leading, spacing: 4) {
-                            SecureField(p.name + (p.isLocal ? " Key（可选）" : " Key"), text: Binding(
-                                get: { keys[idx] ?? "" },
-                                set: { keys[idx] = $0 }
-                            ))
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            LabeledContent("状态", value: saved[idx] == true ? "已保存" : (p.isLocal ? "本地可留空" : "未填写"))
-                                .font(.caption)
-                        }
-                    }
-                    Button { saveKeys() } label: {
-                        Label("保存 Key", systemImage: "square.and.arrow.down")
-                    }
-                    if let savedHint {
-                        Text(savedHint).font(.footnote).foregroundStyle(.green)
-                    }
-                    Text("云端服务商填完必须点「保存 Key」。本地/局域网服务商 Key 可留空。当前服务商为空时对话无法发送。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("高级（可选，覆盖默认）") {
-                    TextField("自定义 Base URL（留空用默认）", text: $settings.customBaseURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                    TextField("自定义模型名（留空用默认）", text: $settings.customModelName)
-                        .textInputAutocapitalization(.never)
+                Section {
                     HStack {
-                        Text("Temperature")
-                        Slider(value: $settings.temperature, in: 0...2)
-                        Text(String(format: "%.1f", settings.temperature))
+                        if showKey {
+                            TextField("API Key", text: $keyText)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        } else {
+                            SecureField("API Key", text: $keyText)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        }
+                        Button {
+                            showKey.toggle()
+                        } label: {
+                            Image(systemName: showKey ? "eye.slash" : "eye")
+                        }
+                        .buttonStyle(.plain)
                     }
+                } header: {
+                    Text("API Key")
+                } footer: {
+                    Text("Key 仅保存在本机 Keychain，不会上传。")
+                        .font(.footnote)
                 }
 
-                Section("本地 7B 模型说明") {
-                    Text("推荐无对齐（uncensored / abliterated）7B 级模型：\n• DeepSeek-R1-Distill-Qwen-7B\n• Qwen2.5-7B-Instruct-Abliterated\n• 在电脑用 Ollama / LM Studio 加载后，把 Base URL 设为 http://你的电脑IP:11434/v1 即可。\n真机与电脑需同一 Wi-Fi，并允许本地网络权限。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                Section {
+                    Button {
+                        saveAndTest()
+                    } label: {
+                        if isTesting {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                        } else {
+                            Text("保存并测试连接")
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .disabled(keyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTesting)
+
+                    if let status {
+                        Text(status)
+                            .font(.footnote)
+                            .foregroundStyle(status.contains("成功") ? .green : .red)
+                    }
                 }
 
                 Section("说明") {
-                    Text("• 所有服务商均为 OpenAI 兼容协议（/chat/completions, stream=true）\n• 不内置任何付费 Key\n• Key 仅存于本机钥匙串\n• 已针对 iPhone Air 6.5\" 屏幕与 Dynamic Island 做自适应布局")
+                    Text("当前默认模型：\n• DeepSeek → deepseek-flash\n• OpenAI → gpt-4o-mini\n• 通义千问 → qwen-turbo\n\n无需填写 Base URL 或模型名，程序内部已配置。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("模型配置")
-            .onAppear { loadKeys() }
+            .navigationTitle("API 设置")
+            .onAppear { loadKey() }
         }
     }
 
-    private func loadKeys() {
-        for (idx, p) in LLMProvider.builtin.enumerated() {
-            let k = KeychainManager.shared.get(p.placeholderKey) ?? ""
-            keys[idx] = k
-            saved[idx] = !k.isEmpty
-        }
+    private func loadKey() {
+        keyText = KeychainManager.shared.get(settings.provider.placeholderKey) ?? ""
     }
 
-    private func saveKeys() {
-        var count = 0
-        for (idx, raw) in keys {
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                KeychainManager.shared.set(LLMProvider.builtin[idx].placeholderKey, value: trimmed)
-                saved[idx] = true
-                count += 1
+    private func saveAndTest() {
+        let trimmed = keyText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        KeychainManager.shared.set(settings.provider.placeholderKey, value: trimmed)
+        isTesting = true
+        status = nil
+
+        Task {
+            let config = settings.currentConfig()
+            do {
+                // Minimal test: send a short non-stream request
+                var base = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                while base.hasSuffix("/") { base.removeLast() }
+                guard let url = URL(string: base + "/chat/completions") else {
+                    await MainActor.run {
+                        status = "URL 无效"
+                        isTesting = false
+                    }
+                    return
+                }
+                var req = URLRequest(url: url)
+                req.httpMethod = "POST"
+                req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                req.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
+                req.timeoutInterval = 20
+                let body: [String: Any] = [
+                    "model": config.modelName,
+                    "stream": false,
+                    "max_tokens": 8,
+                    "messages": [["role": "user", "content": "hi"]]
+                ]
+                req.httpBody = try JSONSerialization.data(withJSONObject: body)
+                let (_, resp) = try await URLSession.shared.data(for: req)
+                let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+                await MainActor.run {
+                    if (200..<300).contains(code) {
+                        status = "连接成功"
+                    } else if code == 401 {
+                        status = "Key 无效或已过期 (401)"
+                    } else {
+                        status = "连接失败 (HTTP \(code))"
+                    }
+                    isTesting = false
+                }
+            } catch {
+                await MainActor.run {
+                    status = "网络错误：\(error.localizedDescription)"
+                    isTesting = false
+                }
             }
         }
-        savedHint = count > 0 ? "已保存 \(count) 个 API Key" : "本地服务商可留空 Key"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { savedHint = nil }
     }
 }
