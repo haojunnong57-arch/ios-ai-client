@@ -13,6 +13,35 @@ enum AppThemeMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum AccentPalette: String, CaseIterable, Identifiable {
+    case systemBlue, sky, mint, indigo, purple, pink, orange, graphite
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .systemBlue: return "系统蓝"
+        case .sky: return "天空蓝"
+        case .mint: return "薄荷绿"
+        case .indigo: return "靛蓝"
+        case .purple: return "薰衣草紫"
+        case .pink: return "柔和粉"
+        case .orange: return "日落橙"
+        case .graphite: return "石墨灰"
+        }
+    }
+    var color: Color {
+        switch self {
+        case .systemBlue: return .blue
+        case .sky: return Color(red: 0.35, green: 0.62, blue: 0.95)
+        case .mint: return Color(red: 0.35, green: 0.78, blue: 0.68)
+        case .indigo: return Color(red: 0.42, green: 0.45, blue: 0.85)
+        case .purple: return Color(red: 0.62, green: 0.48, blue: 0.85)
+        case .pink: return Color(red: 0.92, green: 0.48, blue: 0.62)
+        case .orange: return Color(red: 0.95, green: 0.55, blue: 0.30)
+        case .graphite: return Color(red: 0.45, green: 0.48, blue: 0.52)
+        }
+    }
+}
+
 @MainActor
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
@@ -24,9 +53,10 @@ final class AppSettings: ObservableObject {
     @Published var customModelName: String { didSet { persist() } }
     @Published var useCustomEndpoint: Bool { didSet { persist() } }
     @Published var themeMode: AppThemeMode { didSet { persist() } }
+    @Published var accentPalette: AccentPalette { didSet { persist() } }
 
     private let defaults = UserDefaults.standard
-    private let key = "app_settings_v4"
+    private let key = "app_settings_v5"
 
     private init() {
         if let data = defaults.dictionary(forKey: key) {
@@ -36,11 +66,8 @@ final class AppSettings: ObservableObject {
             self.customBaseURL = data["customBase"] as? String ?? ""
             self.customModelName = data["customModel"] as? String ?? ""
             self.useCustomEndpoint = data["useCustom"] as? Bool ?? false
-            if let t = data["theme"] as? String, let mode = AppThemeMode(rawValue: t) {
-                self.themeMode = mode
-            } else {
-                self.themeMode = .system
-            }
+            self.themeMode = AppThemeMode(rawValue: data["theme"] as? String ?? "") ?? .system
+            self.accentPalette = AccentPalette(rawValue: data["accent"] as? String ?? "") ?? .systemBlue
         } else {
             self.selectedProviderIndex = 0
             self.systemPrompt = "你是一个有帮助的中文 AI 助手。回答时如果使用了联网搜索资料，请在末尾列出参考来源。"
@@ -49,6 +76,7 @@ final class AppSettings: ObservableObject {
             self.customModelName = ""
             self.useCustomEndpoint = false
             self.themeMode = .system
+            self.accentPalette = .systemBlue
         }
         if selectedProviderIndex >= LLMProvider.builtin.count {
             selectedProviderIndex = 0
@@ -63,7 +91,8 @@ final class AppSettings: ObservableObject {
             "customBase": customBaseURL,
             "customModel": customModelName,
             "useCustom": useCustomEndpoint,
-            "theme": themeMode.rawValue
+            "theme": themeMode.rawValue,
+            "accent": accentPalette.rawValue
         ], forKey: key)
     }
 

@@ -30,7 +30,6 @@ struct RootView: View {
     @State private var currentSessionID: UUID?
 
     var body: some View {
-        // 使用 VStack 上下分区，导航栏不覆盖内容（比 overlay / 硬编码 padding 更可靠）
         VStack(spacing: 0) {
             Group {
                 switch activeTab {
@@ -58,12 +57,14 @@ struct RootView: View {
                 .background(.bar)
         }
         .preferredColorScheme(settings.resolvedColorScheme)
+        .tint(settings.accentPalette.color)
     }
 }
 
 struct LiquidGlassTabBar: View {
     @Binding var activeTab: RootTab
     @Namespace private var ns
+    @EnvironmentObject var settings: AppSettings
 
     var body: some View {
         HStack(spacing: 0) {
@@ -79,14 +80,14 @@ struct LiquidGlassTabBar: View {
                         Text(tab.title)
                             .font(.system(size: 10, weight: .medium))
                     }
-                    .foregroundStyle(activeTab == tab ? Color.primary : Color.secondary)
+                    .foregroundStyle(activeTab == tab ? settings.accentPalette.color : Color.secondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .background {
                         if activeTab == tab {
                             Capsule()
                                 .fill(.ultraThinMaterial)
-                                .overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 0.8))
+                                .overlay(Capsule().stroke(settings.accentPalette.color.opacity(0.25), lineWidth: 0.8))
                                 .matchedGeometryEffect(id: "pill", in: ns)
                         }
                     }
@@ -100,18 +101,7 @@ struct LiquidGlassTabBar: View {
                 .fill(.regularMaterial)
                 .overlay(
                     Capsule()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color.white.opacity(0.4),
-                                    Color.white.opacity(0.08),
-                                    Color.primary.opacity(0.12)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+                        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         }

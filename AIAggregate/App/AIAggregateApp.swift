@@ -10,6 +10,7 @@ struct AIAggregateApp: App {
             RootView()
                 .environmentObject(settings)
                 .environmentObject(store)
+                .tint(settings.accentPalette.color)
         }
     }
 }
