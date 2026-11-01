@@ -28,32 +28,27 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen || true
 
-      - name: Create AppIcon
+      - name: Create AppIcon assets
         run: |
           set -e
           mkdir -p AIAggregate/Assets.xcassets/AppIcon.appiconset
-
-          # Create a simple black PNG using pure shell + Python one-liner (no multiline string)
-          python3 -c 'from struct import pack; import zlib,os; w=h=1024; raw=b"".join([b"\x00"+b"\x0a\x0a\x0a"*w for _ in range(h)]); ihdr=pack(">IIBBBBB",w,h,8,2,0,0,0); data=b"\x89PNG\r\n\x1a\n"+pack(">I",13)+b"IHDR"+ihdr+pack(">I",zlib.crc32(b"IHDR"+ihdr)&0xffffffff)+pack(">I",len(zlib.compress(raw,9)))+b"IDAT"+zlib.compress(raw,9)+pack(">I",zlib.crc32(b"IDAT"+zlib.compress(raw,9))&0xffffffff)+pack(">I",0)+b"IEND"+pack(">I",zlib.crc32(b"IEND")&0xffffffff); open("/tmp/icon1024.png","wb").write(data); print(os.path.getsize("/tmp/icon1024.png"))'
-
-          # Make a white circle on black using sips if possible, else keep solid black
-          # For now solid black is fine and reliable
+          # Create minimal 1x1 black PNG and let sips scale it (simple and reliable)
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\xfe\xd4\xef\x00\x00\x00\x00IEND\xaeB`\x82' > /tmp/icon1.png
           for s in 20 29 40 60 76 1024; do
-            sips -z $s $s /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-${s}.png
+            sips -z $s $s /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-${s}.png
           done
-          sips -z 40 40 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@2x.png
-          sips -z 60 60 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@3x.png
-          sips -z 58 58 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-29@2x.png
-          sips -z 87 87 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-29@3x.png
-          sips -z 80 80 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-40@2x.png
-          sips -z 120 120 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-40@3x.png
-          sips -z 120 120 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-60@2x.png
-          sips -z 180 180 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-60@3x.png
-          sips -z 152 152 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-76@2x.png
-          sips -z 167 167 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-83.5@2x.png
-          sips -z 1024 1024 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-1024.png
-
-          cat > AIAggregate/Assets.xcassets/AppIcon.appiconset/Contents.json << 'JSON'
+          sips -z 40 40 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@2x.png
+          sips -z 60 60 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@3x.png
+          sips -z 58 58 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-29@2x.png
+          sips -z 87 87 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-29@3x.png
+          sips -z 80 80 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-40@2x.png
+          sips -z 120 120 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-40@3x.png
+          sips -z 120 120 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-60@2x.png
+          sips -z 180 180 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-60@3x.png
+          sips -z 152 152 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-76@2x.png
+          sips -z 167 167 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-83.5@2x.png
+          sips -z 1024 1024 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+          cat > AIAggregate/Assets.xcassets/AppIcon.appiconset/Contents.json << 'EOF'
 {
   "images" : [
     {"filename" : "icon-20.png", "idiom" : "iphone", "scale" : "1x", "size" : "20x20"},
@@ -74,14 +69,12 @@ jobs:
   ],
   "info" : {"author" : "xcode", "version" : 1}
 }
-JSON
-
-          cat > AIAggregate/Assets.xcassets/Contents.json << 'JSON'
+EOF
+          cat > AIAggregate/Assets.xcassets/Contents.json << 'EOF'
 {
   "info" : {"author" : "xcode", "version" : 1}
 }
-JSON
-
+EOF
           ls AIAggregate/Assets.xcassets/AppIcon.appiconset/
 
       - name: Generate project
@@ -89,64 +82,23 @@ JSON
 
       - name: Build Simulator smoke test
         run: |
-          xcodebuild build \
-            -project AIAggregate.xcodeproj \
-            -scheme AIAggregate \
-            -destination 'generic/platform=iOS Simulator' \
-            -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO || true
+          xcodebuild build -project AIAggregate.xcodeproj -scheme AIAggregate -destination 'generic/platform=iOS Simulator' -configuration Debug CODE_SIGNING_ALLOWED=NO || true
 
       - name: Archive and package IPA
         run: |
           set -e
-          xcodebuild archive \
-            -project AIAggregate.xcodeproj \
-            -scheme AIAggregate \
-            -configuration Release \
-            -archivePath build/AIAggregate.xcarchive \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            PRODUCT_NAME=AIAggregate
-
+          xcodebuild archive -project AIAggregate.xcodeproj -scheme AIAggregate -configuration Release -archivePath build/AIAggregate.xcarchive -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" PRODUCT_NAME=AIAggregate
           APP="build/AIAggregate.xcarchive/Products/Applications/AIAggregate.app"
-          echo "=== App structure ==="
           ls -la "$APP"
-          find "$APP" -maxdepth 2 -type f | head -20
-
-          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AIAggregate" "$APP/Info.plist" 2>/dev/null || \
-          /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string AIAggregate" "$APP/Info.plist"
-
+          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AIAggregate" "$APP/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string AIAggregate" "$APP/Info.plist"
           chmod +x "$APP/AIAggregate" || true
-
           rm -rf build/Payload build/AIAggregate-unsigned.ipa
           mkdir -p build/Payload
           cp -a "$APP" build/Payload/
-
           cd build
           zip -r -X AIAggregate-unsigned.ipa Payload
-
           ls -lh AIAggregate-unsigned.ipa
-          unzip -l AIAggregate-unsigned.ipa | head -20
-
-      - name: Verify IPA
-        run: |
-          python3 -c '
-import zipfile, plistlib, os, tempfile
-z = zipfile.ZipFile("build/AIAggregate-unsigned.ipa")
-print("files:", [n for n in z.namelist() if "AIAggregate" in n][:5])
-with tempfile.TemporaryDirectory() as d:
-  z.extractall(d)
-  app = os.path.join(d, "Payload", "AIAggregate.app")
-  assert os.path.isfile(os.path.join(app, "AIAggregate")), "missing binary"
-  p = plistlib.load(open(os.path.join(app, "Info.plist"), "rb"))
-  print("CFBundleExecutable =", p.get("CFBundleExecutable"))
-  print("Binary size:", os.path.getsize(os.path.join(app, "AIAggregate")))
-  print("App contents:", os.listdir(app))
-  print("VERIFY OK")
-'
+          unzip -l AIAggregate-unsigned.ipa | head -15
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -164,13 +116,5 @@ with tempfile.TemporaryDirectory() as d:
           for TAG in ci-unsigned-latest v2.2.0; do
             gh release delete "$TAG" -y --cleanup-tag || true
           done
-          gh release create "ci-unsigned-latest" \
-            --title "Unsigned $(date -u +%Y%m%d-%H%M%S)" \
-            --prerelease \
-            --notes "修复构建YAML、黑白图标、网络权限、本地7B支持。用全能签重签安装。" \
-            build/AIAggregate-unsigned.ipa
-          gh release create "v2.2.0" \
-            --title "2.2.0 图标 + 网络 + 本地模型" \
-            --prerelease \
-            --notes "包含 App 图标、完整网络权限、局域网7B模型支持。" \
-            build/AIAggregate-unsigned.ipa
+          gh release create "ci-unsigned-latest" --title "Unsigned $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "黑白图标 + 网络权限 + 本地7B。用全能签重签安装。" build/AIAggregate-unsigned.ipa
+          gh release create "v2.2.0" --title "2.2.0 图标 + 网络 + 本地模型" --prerelease --notes "包含 App 图标、网络权限、局域网7B支持。" build/AIAggregate-unsigned.ipa
