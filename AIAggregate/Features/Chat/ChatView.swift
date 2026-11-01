@@ -56,7 +56,7 @@ struct ChatView: View {
 
     private var composer: some View {
         VStack(spacing: 8) {
-            Divider().opacity(0.3)
+            Divider().opacity(0.25)
             HStack {
                 Toggle(isOn: $settings.enableWebSearch) {
                     Label("联网搜索", systemImage: "globe")
@@ -69,7 +69,6 @@ struct ChatView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 4)
 
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("输入消息…", text: $vm.inputText, axis: .vertical)

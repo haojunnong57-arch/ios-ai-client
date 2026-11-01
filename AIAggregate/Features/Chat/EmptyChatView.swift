@@ -12,11 +12,11 @@ struct EmptyChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 24)
+            Spacer(minLength: 16)
 
-            VStack(spacing: 18) {
+            VStack(spacing: 16) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 64, weight: .regular))
+                    .font(.system(size: 56, weight: .regular))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(.tint)
 
@@ -26,6 +26,7 @@ struct EmptyChatView: View {
                 Text("当前模型：\(settings.provider.name) · \(settings.provider.defaultModel)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
 
                 if hasKey {
                     Label("API Key 已配置，可直接对话", systemImage: "checkmark.seal.fill")
@@ -35,16 +36,15 @@ struct EmptyChatView: View {
                     Label("尚未填写当前服务商的 API Key", systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote)
                         .foregroundStyle(.orange)
-                    Text("请到「模型」页填写并保存 Key 后再发送消息")
+                    Text("请到「我的 → API 设置」填写并保存 Key")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 28)
 
-            Spacer(minLength: 20)
+            Spacer(minLength: 16)
 
             VStack(spacing: 12) {
                 Button(action: onStart) {
@@ -64,8 +64,8 @@ struct EmptyChatView: View {
                     .controlSize(.large)
                 }
             }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 24)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

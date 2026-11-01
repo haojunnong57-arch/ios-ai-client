@@ -30,30 +30,32 @@ struct RootView: View {
     @State private var currentSessionID: UUID?
 
     var body: some View {
-        Group {
-            switch activeTab {
-            case .chat:
-                ChatContainerView(
-                    sessionID: $currentSessionID,
-                    onGoModels: { activeTab = .me }
-                )
-            case .history:
-                HistoryView(sessionID: $currentSessionID, onSelectChat: {
-                    activeTab = .chat
-                })
-            case .me:
-                MeView()
-            case .search:
-                SearchHomeView()
+        // 使用 VStack 上下分区，导航栏不覆盖内容（比 overlay / 硬编码 padding 更可靠）
+        VStack(spacing: 0) {
+            Group {
+                switch activeTab {
+                case .chat:
+                    ChatContainerView(
+                        sessionID: $currentSessionID,
+                        onGoModels: { activeTab = .me }
+                    )
+                case .history:
+                    HistoryView(sessionID: $currentSessionID, onSelectChat: {
+                        activeTab = .chat
+                    })
+                case .me:
+                    MeView()
+                case .search:
+                    SearchHomeView()
+                }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // 正确做法：用 safeAreaInset 预留底部空间，避免输入框与导航栏重叠
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             LiquidGlassTabBar(activeTab: $activeTab)
                 .padding(.horizontal, 20)
-                .padding(.top, 6)
+                .padding(.top, 8)
                 .padding(.bottom, 6)
+                .background(.bar)
         }
         .preferredColorScheme(settings.resolvedColorScheme)
     }
@@ -111,8 +113,7 @@ struct LiquidGlassTabBar: View {
                             lineWidth: 1
                         )
                 )
-                .shadow(color: .black.opacity(0.15), radius: 16, y: 6)
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         }
-        .accessibilityElement(children: .contain)
     }
 }
