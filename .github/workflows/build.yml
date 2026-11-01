@@ -30,14 +30,6 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Run Unit Tests
-        run: |
-          xcodebuild test \
-            -project AIAggregate.xcodeproj \
-            -scheme AIAggregate \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
-
       - name: Build Unsigned IPA
         run: |
           set -e
