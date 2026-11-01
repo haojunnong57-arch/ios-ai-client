@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-26
@@ -51,10 +54,22 @@ jobs:
           zip -r AIAggregate-unsigned.ipa Payload
           ls -lh AIAggregate-unsigned.ipa
 
-      - name: Upload IPA
+      - name: Upload IPA (Actions artifact, 30-day retention)
         uses: actions/upload-artifact@v4
         with:
           name: AIAggregate-unsigned-ipa
           path: build/AIAggregate-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish unsigned IPA to Release (stable link)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release delete "ci-unsigned-latest" -y --cleanup-tag || true
+          gh release create "ci-unsigned-latest" \
+            --title "Unsigned build $(date -u +%Y%m%d-%H%M%S)" \
+            --prerelease \
+            --notes "GitHub Actions 自动构建的未签名 IPA。未签名、不可直接安装，请用全能签等工具重签后使用。" \
+            build/AIAggregate-unsigned.ipa
