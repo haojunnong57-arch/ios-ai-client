@@ -23,18 +23,46 @@ jobs:
 
       - name: Build for Simulator
         run: |
-          echo "# Build Result" >> $GITHUB_STEP_SUMMARY
-          set +e
           xcodebuild build \
             -project AIAggregate.xcodeproj \
             -scheme AIAggregate \
             -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO > build.log 2>&1
-          RC=$?
-          echo "## Exit code: $RC" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -60 build.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -30 build.log
-          if [ $RC -ne 0 ]; then echo "BUILD FAILED"; fi
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Run Unit Tests
+        run: |
+          xcodebuild test \
+            -project AIAggregate.xcodeproj \
+            -scheme AIAggregate \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build Unsigned IPA
+        run: |
+          set -e
+          xcodebuild archive \
+            -project AIAggregate.xcodeproj \
+            -scheme AIAggregate \
+            -configuration Release \
+            -archivePath build/AIAggregate.xcarchive \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+          APP_PATH="build/AIAggregate.xcarchive/Products/Applications/AIAggregate.app"
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/
+          cd build
+          zip -r AIAggregate-unsigned.ipa Payload
+          ls -lh AIAggregate-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIAggregate-unsigned-ipa
+          path: build/AIAggregate-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
