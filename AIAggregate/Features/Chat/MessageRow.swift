@@ -13,7 +13,7 @@ struct MessageRow: View {
                 Text(message.displayText)
                     .textSelection(.enabled)
                     .padding(10)
-                    .background(message.role == .user ? Color.tint.gradient : Color.secondary.opacity(0.12),
+                    .background(message.role == .user ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.secondary.opacity(0.12)),
                                 in: RoundedRectangle(cornerRadius: 14))
                     .foregroundStyle(message.role == .user ? Color.white : Color.primary)
             }
