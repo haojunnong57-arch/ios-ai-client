@@ -23,7 +23,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.haojunnong.aichat
         INFOPLIST_FILE: AIAggregate/Info.plist
         GENERATE_INFOPLIST_FILE: "NO"
-        MARKETING_VERSION: "2.3.0"
+        MARKETING_VERSION: "2.4.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES

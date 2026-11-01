@@ -34,6 +34,7 @@ struct ChatView: View {
                         }
                     }
                     .padding()
+                    .padding(.bottom, 90)
                 }
                 .onChange(of: vm.session.messages.last?.content) { _, _ in
                     if let last = vm.session.messages.last {
@@ -42,16 +43,16 @@ struct ChatView: View {
                 }
             }
             composer
+                .padding(.bottom, 72)
         }
         .onAppear { vm.wire(store: store, settings: settings) }
     }
 
     private var composer: some View {
         VStack(spacing: 8) {
-            // Search toggle
             HStack {
                 Toggle(isOn: $settings.enableWebSearch) {
-                    Label("联网搜索", systemImage: settings.enableWebSearch ? "globe" : "globe")
+                    Label("联网搜索", systemImage: "globe")
                         .font(.footnote)
                 }
                 .toggleStyle(.button)
