@@ -8,102 +8,93 @@ struct ModelsView: View {
     @State private var isTesting = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Picker("AI 服务商", selection: $settings.selectedProviderIndex) {
-                        ForEach(Array(LLMProvider.builtin.enumerated()), id: \.offset) { idx, p in
-                            Text(p.name).tag(idx)
-                        }
+        Form {
+            Section {
+                Picker("AI 服务商", selection: $settings.selectedProviderIndex) {
+                    ForEach(Array(LLMProvider.builtin.enumerated()), id: \.offset) { idx, p in
+                        Text(p.name).tag(idx)
                     }
-                    .onChange(of: settings.selectedProviderIndex) { _, _ in
-                        loadKey()
-                        status = nil
-                        // 选中「自定义」时自动打开自定义端点
-                        if settings.provider.name.contains("自定义") {
-                            settings.useCustomEndpoint = true
-                            if settings.customBaseURL.isEmpty {
-                                settings.customBaseURL = settings.provider.defaultBaseURL
-                            }
-                            if settings.customModelName.isEmpty {
-                                settings.customModelName = settings.provider.defaultModel
-                            }
-                        }
-                    }
-                } header: {
-                    Text("选择服务商")
                 }
-
-                Section {
-                    HStack {
-                        if showKey {
-                            TextField("API Key", text: $keyText)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                        } else {
-                            SecureField("API Key", text: $keyText)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
+                .onChange(of: settings.selectedProviderIndex) { _, _ in
+                    loadKey()
+                    status = nil
+                    if settings.provider.name.contains("自定义") {
+                        settings.useCustomEndpoint = true
+                        if settings.customBaseURL.isEmpty {
+                            settings.customBaseURL = settings.provider.defaultBaseURL
                         }
-                        Button { showKey.toggle() } label: {
-                            Image(systemName: showKey ? "eye.slash" : "eye")
+                        if settings.customModelName.isEmpty {
+                            settings.customModelName = settings.provider.defaultModel
                         }
-                        .buttonStyle(.plain)
                     }
-                } header: {
-                    Text("API Key")
-                } footer: {
-                    Text("Key 仅保存在本机 Keychain，不会上传。")
-                        .font(.footnote)
                 }
+            } header: {
+                Text("选择服务商")
+            }
 
-                Section {
-                    Toggle("使用自定义接口", isOn: $settings.useCustomEndpoint)
-                    if settings.useCustomEndpoint {
-                        TextField("Base URL", text: $settings.customBaseURL)
+            Section {
+                HStack {
+                    if showKey {
+                        TextField("sk-...", text: $keyText)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                            .keyboardType(.URL)
-                        TextField("模型名称", text: $settings.customModelName)
+                    } else {
+                        SecureField("sk-...", text: $keyText)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        Text("第三方 Key 示例：\nURL: https://moonshot.kk18.chat/v1\n模型: deepseek-v4.1-flash-1017")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
                     }
-                } header: {
-                    Text("自定义接口（可选）")
-                } footer: {
-                    Text("开启后将覆盖默认地址和模型名，适用于第三方聚合平台。")
-                        .font(.footnote)
+                    Button { showKey.toggle() } label: {
+                        Image(systemName: showKey ? "eye.slash" : "eye")
+                    }
+                    .buttonStyle(.plain)
                 }
+            } header: {
+                Text("API Key（密钥）")
+            } footer: {
+                Text("只填密钥本身，不要填到下面的网址栏。")
+                    .font(.footnote)
+            }
 
-                Section {
-                    Button { saveAndTest() } label: {
-                        if isTesting {
-                            ProgressView().frame(maxWidth: .infinity)
-                        } else {
-                            Text("保存并测试连接").frame(maxWidth: .infinity)
-                        }
-                    }
-                    .disabled(keyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTesting)
-
-                    if let status {
-                        Text(status)
-                            .font(.footnote)
-                            .foregroundStyle(status.contains("成功") ? .green : .red)
-                    }
-                }
-
-                Section("说明") {
-                    Text("官方默认：\n• DeepSeek → deepseek-flash\n• OpenAI → gpt-4o-mini\n• 通义千问 → qwen-turbo\n\n第三方卡密请开启「自定义接口」并填写卖家提供的 URL 和模型名。")
-                        .font(.footnote)
+            Section {
+                Toggle("使用自定义接口", isOn: $settings.useCustomEndpoint)
+                if settings.useCustomEndpoint {
+                    TextField("https://api.example.com/v1", text: $settings.customBaseURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                    TextField("模型名称，如 deepseek-v4.1-flash-1017", text: $settings.customModelName)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Text("第三方示例\nBase URL: https://moonshot.kk18.chat/v1\n模型: deepseek-v4.1-flash-1017")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("自定义接口")
+            } footer: {
+                Text("Base URL 必须以 http:// 或 https:// 开头。")
+                    .font(.footnote)
             }
-            .navigationTitle("API 设置")
-            .onAppear { loadKey() }
+
+            Section {
+                Button { saveAndTest() } label: {
+                    if isTesting {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("保存并测试连接").frame(maxWidth: .infinity)
+                    }
+                }
+                .disabled(keyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTesting)
+
+                if let status {
+                    Text(status)
+                        .font(.footnote)
+                        .foregroundStyle(status.contains("成功") ? .green : .red)
+                }
+            }
         }
+        .navigationTitle("API 设置")
+        .onAppear { loadKey() }
     }
 
     private func loadKey() {
@@ -113,6 +104,23 @@ struct ModelsView: View {
     private func saveAndTest() {
         let trimmed = keyText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        if settings.useCustomEndpoint {
+            let base = settings.customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            if base.lowercased().hasPrefix("sk-") {
+                status = "填错位置：密钥应写在「API Key」，Base URL 应是 https:// 开头的网址"
+                return
+            }
+            if !base.lowercased().hasPrefix("http://") && !base.lowercased().hasPrefix("https://") {
+                status = "Base URL 必须以 https:// 开头"
+                return
+            }
+            if settings.customModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                status = "请填写模型名称"
+                return
+            }
+        }
+
         KeychainManager.shared.set(settings.provider.placeholderKey, value: trimmed)
         isTesting = true
         status = nil
@@ -122,7 +130,7 @@ struct ModelsView: View {
             do {
                 var base = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
                 while base.hasSuffix("/") { base.removeLast() }
-                guard let url = URL(string: base + "/chat/completions") else {
+                guard let url = URL(string: base + "/chat/completions"), url.scheme == "http" || url.scheme == "https" else {
                     await MainActor.run {
                         status = "URL 无效"
                         isTesting = false

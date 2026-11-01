@@ -1,4 +1,17 @@
 import Foundation
+import SwiftUI
+
+enum AppThemeMode: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: return "跟随系统"
+        case .light: return "浅色"
+        case .dark: return "深色"
+        }
+    }
+}
 
 @MainActor
 final class AppSettings: ObservableObject {
@@ -10,9 +23,10 @@ final class AppSettings: ObservableObject {
     @Published var customBaseURL: String { didSet { persist() } }
     @Published var customModelName: String { didSet { persist() } }
     @Published var useCustomEndpoint: Bool { didSet { persist() } }
+    @Published var themeMode: AppThemeMode { didSet { persist() } }
 
     private let defaults = UserDefaults.standard
-    private let key = "app_settings_v3"
+    private let key = "app_settings_v4"
 
     private init() {
         if let data = defaults.dictionary(forKey: key) {
@@ -22,6 +36,11 @@ final class AppSettings: ObservableObject {
             self.customBaseURL = data["customBase"] as? String ?? ""
             self.customModelName = data["customModel"] as? String ?? ""
             self.useCustomEndpoint = data["useCustom"] as? Bool ?? false
+            if let t = data["theme"] as? String, let mode = AppThemeMode(rawValue: t) {
+                self.themeMode = mode
+            } else {
+                self.themeMode = .system
+            }
         } else {
             self.selectedProviderIndex = 0
             self.systemPrompt = "你是一个有帮助的中文 AI 助手。回答时如果使用了联网搜索资料，请在末尾列出参考来源。"
@@ -29,6 +48,7 @@ final class AppSettings: ObservableObject {
             self.customBaseURL = ""
             self.customModelName = ""
             self.useCustomEndpoint = false
+            self.themeMode = .system
         }
         if selectedProviderIndex >= LLMProvider.builtin.count {
             selectedProviderIndex = 0
@@ -42,8 +62,17 @@ final class AppSettings: ObservableObject {
             "webSearch": enableWebSearch,
             "customBase": customBaseURL,
             "customModel": customModelName,
-            "useCustom": useCustomEndpoint
+            "useCustom": useCustomEndpoint,
+            "theme": themeMode.rawValue
         ], forKey: key)
+    }
+
+    var resolvedColorScheme: ColorScheme? {
+        switch themeMode {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 
     var provider: LLMProvider {

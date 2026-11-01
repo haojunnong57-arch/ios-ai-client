@@ -10,7 +10,6 @@ struct AIAggregateApp: App {
             RootView()
                 .environmentObject(settings)
                 .environmentObject(store)
-                .preferredColorScheme(nil)
         }
     }
 }

@@ -31,7 +31,11 @@ final class ChatViewModel: ObservableObject {
 
         let config = settings.currentConfig()
         if config.apiKey.trimmingCharacters(in: .whitespaces).isEmpty {
-            errorMessage = "请先到「模型」页填写并保存 API Key"
+            errorMessage = "请先到「我的 → API 设置」填写并保存 API Key"
+            return
+        }
+        if !config.baseURL.lowercased().hasPrefix("http://") && !config.baseURL.lowercased().hasPrefix("https://") {
+            errorMessage = "Base URL 无效：请填写以 https:// 开头的地址，不要把 API Key 填进网址栏"
             return
         }
 
@@ -62,7 +66,6 @@ final class ChatViewModel: ObservableObject {
                     lastSearchSources = results
                     if !results.isEmpty {
                         let searchContext = await WebSearchService.shared.formatForPrompt(results)
-                        // Inject search context as a system message before the last user message
                         if let lastUserIdx = messagesForModel.lastIndex(where: { $0.role == .user }) {
                             messagesForModel.insert(
                                 ChatMessage(role: .system, content: searchContext, createdAt: Date()),
@@ -71,7 +74,6 @@ final class ChatViewModel: ObservableObject {
                         }
                     }
                 } catch {
-                    // Search failure should not block the answer
                     errorMessage = "搜索失败（仍尝试直接回答）：\(error.localizedDescription)"
                 }
                 isSearching = false
@@ -93,7 +95,6 @@ final class ChatViewModel: ObservableObject {
 
             if let i = session.messages.lastIndex(where: { $0.isStreaming }) {
                 session.messages[i].isStreaming = false
-                // Append sources if any
                 if !lastSearchSources.isEmpty {
                     var sourceText = "\n\n参考来源：\n"
                     for (idx, s) in lastSearchSources.enumerated() {
@@ -131,5 +132,18 @@ final class ChatViewModel: ObservableObject {
             session.messages.removeAll(where: { $0.id == lastUser.id })
             send()
         }
+    }
+
+    func editAndResend(messageID: UUID, newText: String) {
+        guard !isGenerating else { return }
+        let text = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        // 删除该用户消息及其后的所有消息，再重发
+        if let idx = session.messages.firstIndex(where: { $0.id == messageID }) {
+            session.messages.removeSubrange(idx...)
+        }
+        inputText = text
+        send()
     }
 }

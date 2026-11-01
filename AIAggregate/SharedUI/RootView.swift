@@ -30,35 +30,35 @@ struct RootView: View {
     @State private var currentSessionID: UUID?
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Group {
-                switch activeTab {
-                case .chat:
-                    ChatContainerView(
-                        sessionID: $currentSessionID,
-                        onGoModels: { activeTab = .me }
-                    )
-                case .history:
-                    HistoryView(sessionID: $currentSessionID, onSelectChat: {
-                        activeTab = .chat
-                    })
-                case .me:
-                    MeView()
-                case .search:
-                    SearchHomeView()
-                }
+        Group {
+            switch activeTab {
+            case .chat:
+                ChatContainerView(
+                    sessionID: $currentSessionID,
+                    onGoModels: { activeTab = .me }
+                )
+            case .history:
+                HistoryView(sessionID: $currentSessionID, onSelectChat: {
+                    activeTab = .chat
+                })
+            case .me:
+                MeView()
+            case .search:
+                SearchHomeView()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            LiquidGlassTabBar(activeTab: $activeTab)
-                .padding(.horizontal, 24)
-                .padding(.bottom, 10)
         }
-        .ignoresSafeArea(.keyboard)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // 正确做法：用 safeAreaInset 预留底部空间，避免输入框与导航栏重叠
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            LiquidGlassTabBar(activeTab: $activeTab)
+                .padding(.horizontal, 20)
+                .padding(.top, 6)
+                .padding(.bottom, 6)
+        }
+        .preferredColorScheme(settings.resolvedColorScheme)
     }
 }
 
-// MARK: - Liquid Glass floating capsule tab bar
 struct LiquidGlassTabBar: View {
     @Binding var activeTab: RootTab
     @Namespace private var ns
@@ -71,7 +71,7 @@ struct LiquidGlassTabBar: View {
                         activeTab = tab
                     }
                 } label: {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Image(systemName: tab.icon)
                             .font(.system(size: 18, weight: .semibold))
                         Text(tab.title)
@@ -79,24 +79,20 @@ struct LiquidGlassTabBar: View {
                     }
                     .foregroundStyle(activeTab == tab ? Color.primary : Color.secondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 8)
                     .background {
                         if activeTab == tab {
                             Capsule()
                                 .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(Color.white.opacity(0.35), lineWidth: 0.8)
-                                )
+                                .overlay(Capsule().stroke(Color.primary.opacity(0.12), lineWidth: 0.8))
                                 .matchedGeometryEffect(id: "pill", in: ns)
-                                .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
                         }
                     }
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(6)
+        .padding(5)
         .background {
             Capsule()
                 .fill(.regularMaterial)
@@ -105,9 +101,9 @@ struct LiquidGlassTabBar: View {
                         .stroke(
                             LinearGradient(
                                 colors: [
-                                    Color.white.opacity(0.45),
+                                    Color.white.opacity(0.4),
                                     Color.white.opacity(0.08),
-                                    Color.white.opacity(0.25)
+                                    Color.primary.opacity(0.12)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -115,7 +111,8 @@ struct LiquidGlassTabBar: View {
                             lineWidth: 1
                         )
                 )
-                .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
+                .shadow(color: .black.opacity(0.15), radius: 16, y: 6)
         }
+        .accessibilityElement(children: .contain)
     }
 }
