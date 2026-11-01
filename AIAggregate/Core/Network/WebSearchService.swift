@@ -10,18 +10,23 @@ struct SearchResult: Identifiable, Sendable {
 actor WebSearchService {
     static let shared = WebSearchService()
 
-    /// Free DuckDuckGo HTML search (no API key required).
+    /// Free DuckDuckGo HTML search via POST (no API key).
     func search(query: String, limit: Int = 5) async throws -> [SearchResult] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return [] }
 
-        var components = URLComponents(string: "https://html.duckduckgo.com/html/")!
-        components.queryItems = [URLQueryItem(name: "q", value: q)]
-        guard let url = components.url else { throw URLError(.badURL) }
+        guard let url = URL(string: "https://html.duckduckgo.com/html/") else {
+            throw URLError(.badURL)
+        }
 
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 15
+        request.httpMethod = "POST"
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 20
+
+        let body = "q=\(q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? q)"
+        request.httpBody = body.data(using: .utf8)
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
@@ -34,39 +39,50 @@ actor WebSearchService {
 
     private func parseDuckDuckGo(html: String, limit: Int) -> [SearchResult] {
         var results: [SearchResult] = []
-        // Simple regex-style extraction for result blocks
         let parts = html.components(separatedBy: "result__a")
         for part in parts.dropFirst() {
             if results.count >= limit { break }
+
+            // href
             guard let hrefRange = part.range(of: "href=\"") else { continue }
             let afterHref = part[hrefRange.upperBound...]
             guard let endQuote = afterHref.firstIndex(of: "\"") else { continue }
             var link = String(afterHref[..<endQuote])
-            // DuckDuckGo often wraps links; try to extract uddg=
-            if let uddg = link.components(separatedBy: "uddg=").last?.removingPercentEncoding,
-               uddg.hasPrefix("http") {
-                link = uddg.components(separatedBy: "&").first ?? uddg
+
+            // unwrap duckduckgo redirect if present
+            if let range = link.range(of: "uddg=") {
+                let encoded = String(link[range.upperBound...])
+                if let decoded = encoded.components(separatedBy: "&").first?.removingPercentEncoding,
+                   decoded.hasPrefix("http") {
+                    link = decoded
+                }
             }
-            // Title: text between > and </a>
+
+            // title text until </a>
             var title = ""
             if let gt = part.range(of: ">"),
                let close = part.range(of: "</a>") {
-                title = String(part[gt.upperBound..<close.lowerBound])
-                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                let raw = String(part[gt.upperBound..<close.lowerBound])
+                title = raw.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            // Snippet
+
+            // snippet
             var snippet = ""
-            if let snipStart = part.range(of: "result__snippet") {
-                let after = part[snipStart.upperBound...]
-                if let gt = after.range(of: ">"),
-                   let close = after.range(of: "</") {
-                    snippet = String(after[gt.upperBound..<close.lowerBound])
-                        .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let snip = part.range(of: "result__snippet") {
+                let after = part[snip.upperBound...]
+                if let gt = after.range(of: ">") {
+                    let rest = after[gt.upperBound...]
+                    if let end = rest.range(of: "</") {
+                        let raw = String(rest[..<end.lowerBound])
+                        snippet = raw.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
                 }
             }
-            if !title.isEmpty && link.hasPrefix("http") {
+
+            if !title.isEmpty && (link.hasPrefix("http") || link.hasPrefix("//")) {
+                if link.hasPrefix("//") { link = "https:" + link }
                 results.append(SearchResult(title: title, url: link, snippet: snippet))
             }
         }
