@@ -4,6 +4,7 @@ struct ChatView: View {
     @StateObject private var vm: ChatViewModel
     @EnvironmentObject var store: SessionStore
     @EnvironmentObject var settings: AppSettings
+    @State private var showVoice = false
 
     init(session: ChatSession) {
         _vm = StateObject(wrappedValue: ChatViewModel(session: session))
@@ -52,6 +53,11 @@ struct ChatView: View {
             composer
         }
         .onAppear { vm.wire(store: store, settings: settings) }
+        .fullScreenCover(isPresented: $showVoice) {
+            VoiceCallView(session: vm.session)
+                .environmentObject(store)
+                .environmentObject(settings)
+        }
     }
 
     private var composer: some View {
@@ -71,6 +77,16 @@ struct ChatView: View {
             }
 
             HStack(alignment: .bottom, spacing: 10) {
+                // 语音入口（参考 ChatGPT：输入框旁）
+                Button {
+                    showVoice = true
+                } label: {
+                    Image(systemName: "waveform.circle.fill")
+                        .font(.system(size: 32))
+                        .symbolRenderingMode(.hierarchical)
+                }
+                .accessibilityLabel("语音通话")
+
                 TextField("输入消息…", text: $vm.inputText, axis: .vertical)
                     .lineLimit(1...6)
                     .padding(.horizontal, 14)
