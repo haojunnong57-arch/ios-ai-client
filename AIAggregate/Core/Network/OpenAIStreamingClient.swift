@@ -40,10 +40,11 @@ struct OpenAIStreamingClient: LLMClient, Sendable {
             throw AppError.unknown("无效响应")
         }
         guard (200..<300).contains(http.statusCode) else {
-            var body = ""
+            var bodyData = Data()
             do {
-                for try await line in bytes { body += String(decoding: line, as: UTF8.self) }
+                for try await byte in bytes { bodyData.append(byte) }
             } catch {}
+            let body = String(decoding: bodyData, as: UTF8.self)
             throw AppError.httpStatus(http.statusCode, String(body.prefix(500)))
         }
 
