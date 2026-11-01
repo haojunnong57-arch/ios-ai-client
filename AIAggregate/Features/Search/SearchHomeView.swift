@@ -7,7 +7,7 @@ struct SearchHomeView: View {
     @State private var errorText: String?
     @State private var aiSummary: String = ""
     @State private var isSummarizing = false
-    @State private var browserURL: URL?
+    @State private var browserItem: BrowserItem?
     @State private var history: [String] = UserDefaults.standard.stringArray(forKey: "search_history") ?? []
 
     private let hotKeywords = ["2026 AI 趋势", "DeepSeek 最新模型", "SwiftUI Liquid Glass", "iPhone Air 评测", "开源大模型"]
@@ -23,58 +23,41 @@ struct SearchHomeView: View {
             }
             .navigationTitle("搜索")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(item: Binding(
-                get: { browserURL.map { IdentifiedURL(url: $0) } },
-                set: { browserURL = $0?.url }
-            )) { item in
+            .sheet(item: $browserItem) { item in
                 InAppBrowserView(url: item.url)
             }
         }
     }
 
     private var homeContent: some View {
-        VStack(spacing: 28) {
-            Spacer(minLength: 40)
-            VStack(spacing: 8) {
-                Image(systemName: "sparkle.magnifyingglass")
-                    .font(.system(size: 48))
-                    .symbolRenderingMode(.hierarchical)
-                Text("LocalGPT Search")
-                    .font(.title2.bold())
-                Text("真实网页搜索 · AI 总结")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer(minLength: 32)
 
-            searchField
-
-            if !history.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("搜索历史").font(.caption).foregroundStyle(.secondary)
-                    FlowLayout(items: history.prefix(8).map { $0 }) { item in
-                        Button(item) { query = item; runSearch() }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                    }
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 44, weight: .medium))
+                        .foregroundStyle(.primary)
+                    Text("LocalGPT Search")
+                        .font(.title2.bold())
+                    Text("真实网页搜索 · AI 总结")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal)
-            }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("热门搜索").font(.caption).foregroundStyle(.secondary)
-                FlowLayout(items: hotKeywords) { item in
-                    Button(item) { query = item; runSearch() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
+                searchField
+                    .padding(.horizontal)
+
+                if !history.isEmpty {
+                    chipSection(title: "搜索历史", items: Array(history.prefix(8)))
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal)
 
-            Spacer()
+                chipSection(title: "热门搜索", items: hotKeywords)
+
+                Spacer(minLength: 100)
+            }
+            .padding(.bottom, 80)
         }
-        .padding()
     }
 
     private var resultsContent: some View {
@@ -83,14 +66,18 @@ struct SearchHomeView: View {
                 .padding()
 
             if isLoading {
+                Spacer()
                 ProgressView("正在搜索…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Spacer()
             } else {
                 List {
-                    if !aiSummary.isEmpty || isSummarizing {
+                    if isSummarizing || !aiSummary.isEmpty {
                         Section("AI 总结") {
                             if isSummarizing {
-                                HStack { ProgressView(); Text("正在生成总结…").font(.footnote) }
+                                HStack(spacing: 8) {
+                                    ProgressView()
+                                    Text("正在生成总结…").font(.footnote)
+                                }
                             } else {
                                 Text(aiSummary)
                                     .font(.body)
@@ -101,14 +88,18 @@ struct SearchHomeView: View {
 
                     if let errorText {
                         Section {
-                            Text(errorText).foregroundStyle(.red).font(.footnote)
+                            Text(errorText)
+                                .foregroundStyle(.red)
+                                .font(.footnote)
                         }
                     }
 
                     Section("搜索结果") {
                         ForEach(results) { r in
                             Button {
-                                if let u = URL(string: r.url) { browserURL = u }
+                                if let u = URL(string: r.url) {
+                                    browserItem = BrowserItem(url: u)
+                                }
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(r.title)
@@ -132,6 +123,7 @@ struct SearchHomeView: View {
                     }
                 }
                 .listStyle(.insetGrouped)
+                .padding(.bottom, 70)
             }
         }
     }
@@ -142,30 +134,59 @@ struct SearchHomeView: View {
                 .foregroundStyle(.secondary)
             TextField("搜索网页…", text: $query)
                 .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
                 .submitLabel(.search)
                 .onSubmit { runSearch() }
             if !query.isEmpty {
-                Button { query = ""; results = []; aiSummary = ""; errorText = nil } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                Button {
+                    query = ""
+                    results = []
+                    aiSummary = ""
+                    errorText = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
                 }
             }
             Button("搜索") { runSearch() }
                 .buttonStyle(.borderedProminent)
-                .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
+                .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isLoading)
         }
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private func chipSection(title: String, items: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(items, id: \.self) { item in
+                    Button(item) {
+                        query = item
+                        runSearch()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+            .padding(.horizontal)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private func runSearch() {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return }
+
         isLoading = true
         errorText = nil
         aiSummary = ""
         results = []
 
-        // history
         var h = history.filter { $0 != q }
         h.insert(q, at: 0)
         history = Array(h.prefix(20))
@@ -211,7 +232,9 @@ struct SearchHomeView: View {
                 ]
                 var text = ""
                 let stream = try await client.streamChat(messages: messages, config: config)
-                for try await part in stream { text += part }
+                for try await part in stream {
+                    text += part
+                }
                 await MainActor.run {
                     aiSummary = text
                     isSummarizing = false
@@ -226,71 +249,7 @@ struct SearchHomeView: View {
     }
 }
 
-private struct IdentifiedURL: Identifiable {
+struct BrowserItem: Identifiable {
     let id = UUID()
     let url: URL
-}
-
-// Simple wrapping layout for chips
-struct FlowLayout<Item: Hashable, Content: View>: View {
-    let items: [Item]
-    let content: (Item) -> Content
-
-    init(items: any Collection<Item>, @ViewBuilder content: @escaping (Item) -> Content) {
-        self.items = Array(items)
-        self.content = content
-    }
-
-    var body: some View {
-        FlexibleView(data: items, spacing: 8, alignment: .leading, content: content)
-    }
-}
-
-struct FlexibleView<Data: Collection, Content: View>: View where Data.Element: Hashable {
-    let data: Data
-    let spacing: CGFloat
-    let alignment: HorizontalAlignment
-    let content: (Data.Element) -> Content
-    @State private var totalHeight: CGFloat = .zero
-
-    var body: some View {
-        GeometryReader { geo in
-            generateContent(in: geo)
-        }
-        .frame(height: totalHeight)
-    }
-
-    private func generateContent(in g: GeometryProxy) -> some View {
-        var width = CGFloat.zero
-        var height = CGFloat.zero
-        return ZStack(alignment: .topLeading) {
-            ForEach(Array(data), id: \.self) { item in
-                content(item)
-                    .padding(.trailing, spacing)
-                    .padding(.bottom, spacing)
-                    .alignmentGuide(.leading) { d in
-                        if abs(width - d.width) > g.size.width {
-                            width = 0
-                            height -= d.height + spacing
-                        }
-                        let result = width
-                        if item == data.last { width = 0 } else { width -= d.width + spacing }
-                        return result
-                    }
-                    .alignmentGuide(.top) { _ in
-                        let result = height
-                        if item == data.last { height = 0 }
-                        return result
-                    }
-            }
-        }
-        .background(viewHeightReader($totalHeight))
-    }
-
-    private func viewHeightReader(_ binding: Binding<CGFloat>) -> some View {
-        GeometryReader { geo -> Color in
-            DispatchQueue.main.async { binding.wrappedValue = geo.size.height }
-            return Color.clear
-        }
-    }
 }
