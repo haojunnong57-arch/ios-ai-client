@@ -19,6 +19,16 @@ struct ModelsView: View {
                     .onChange(of: settings.selectedProviderIndex) { _, _ in
                         loadKey()
                         status = nil
+                        // 选中「自定义」时自动打开自定义端点
+                        if settings.provider.name.contains("自定义") {
+                            settings.useCustomEndpoint = true
+                            if settings.customBaseURL.isEmpty {
+                                settings.customBaseURL = settings.provider.defaultBaseURL
+                            }
+                            if settings.customModelName.isEmpty {
+                                settings.customModelName = settings.provider.defaultModel
+                            }
+                        }
                     }
                 } header: {
                     Text("选择服务商")
@@ -35,9 +45,7 @@ struct ModelsView: View {
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                         }
-                        Button {
-                            showKey.toggle()
-                        } label: {
+                        Button { showKey.toggle() } label: {
                             Image(systemName: showKey ? "eye.slash" : "eye")
                         }
                         .buttonStyle(.plain)
@@ -50,15 +58,32 @@ struct ModelsView: View {
                 }
 
                 Section {
-                    Button {
-                        saveAndTest()
-                    } label: {
+                    Toggle("使用自定义接口", isOn: $settings.useCustomEndpoint)
+                    if settings.useCustomEndpoint {
+                        TextField("Base URL", text: $settings.customBaseURL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .keyboardType(.URL)
+                        TextField("模型名称", text: $settings.customModelName)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        Text("第三方 Key 示例：\nURL: https://moonshot.kk18.chat/v1\n模型: deepseek-v4.1-flash-1017")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("自定义接口（可选）")
+                } footer: {
+                    Text("开启后将覆盖默认地址和模型名，适用于第三方聚合平台。")
+                        .font(.footnote)
+                }
+
+                Section {
+                    Button { saveAndTest() } label: {
                         if isTesting {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
+                            ProgressView().frame(maxWidth: .infinity)
                         } else {
-                            Text("保存并测试连接")
-                                .frame(maxWidth: .infinity)
+                            Text("保存并测试连接").frame(maxWidth: .infinity)
                         }
                     }
                     .disabled(keyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTesting)
@@ -71,7 +96,7 @@ struct ModelsView: View {
                 }
 
                 Section("说明") {
-                    Text("当前默认模型：\n• DeepSeek → deepseek-flash\n• OpenAI → gpt-4o-mini\n• 通义千问 → qwen-turbo\n\n无需填写 Base URL 或模型名，程序内部已配置。")
+                    Text("官方默认：\n• DeepSeek → deepseek-flash\n• OpenAI → gpt-4o-mini\n• 通义千问 → qwen-turbo\n\n第三方卡密请开启「自定义接口」并填写卖家提供的 URL 和模型名。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -95,7 +120,6 @@ struct ModelsView: View {
         Task {
             let config = settings.currentConfig()
             do {
-                // Minimal test: send a short non-stream request
                 var base = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
                 while base.hasSuffix("/") { base.removeLast() }
                 guard let url = URL(string: base + "/chat/completions") else {

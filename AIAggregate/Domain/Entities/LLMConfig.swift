@@ -19,7 +19,11 @@ struct LLMProvider: Identifiable, Equatable, Codable, Sendable, Hashable {
         LLMProvider(name: "通义千问 Qwen",
                     defaultBaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
                     defaultModel: "qwen-turbo",
-                    placeholderKey: "qwen_api_key")
+                    placeholderKey: "qwen_api_key"),
+        LLMProvider(name: "自定义 OpenAI 兼容",
+                    defaultBaseURL: "https://moonshot.kk18.chat/v1",
+                    defaultModel: "deepseek-v4.1-flash-1017",
+                    placeholderKey: "custom_api_key")
     ]
 }
 

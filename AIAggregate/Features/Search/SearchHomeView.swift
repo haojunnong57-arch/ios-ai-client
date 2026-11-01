@@ -23,6 +23,15 @@ struct SearchHomeView: View {
             }
             .navigationTitle("搜索")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if !history.isEmpty {
+                        Button("清空历史", role: .destructive) {
+                            clearHistory()
+                        }
+                    }
+                }
+            }
             .sheet(item: $browserItem) { item in
                 InAppBrowserView(url: item.url)
             }
@@ -37,7 +46,6 @@ struct SearchHomeView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 44, weight: .medium))
-                        .foregroundStyle(.primary)
                     Text("LocalGPT Search")
                         .font(.title2.bold())
                     Text("真实网页搜索 · AI 总结")
@@ -49,10 +57,10 @@ struct SearchHomeView: View {
                     .padding(.horizontal)
 
                 if !history.isEmpty {
-                    chipSection(title: "搜索历史", items: Array(history.prefix(8)))
+                    chipSection(title: "搜索历史", items: Array(history.prefix(8)), showClear: true)
                 }
 
-                chipSection(title: "热门搜索", items: hotKeywords)
+                chipSection(title: "热门搜索", items: hotKeywords, showClear: false)
 
                 Spacer(minLength: 100)
             }
@@ -156,12 +164,20 @@ struct SearchHomeView: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 
-    private func chipSection(title: String, items: [String]) -> some View {
+    private func chipSection(title: String, items: [String], showClear: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
+            HStack {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if showClear {
+                    Button("清空") { clearHistory() }
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+            .padding(.horizontal)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(items, id: \.self) { item in
@@ -176,6 +192,11 @@ struct SearchHomeView: View {
             .padding(.horizontal)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func clearHistory() {
+        history = []
+        UserDefaults.standard.removeObject(forKey: "search_history")
     }
 
     private func runSearch() {

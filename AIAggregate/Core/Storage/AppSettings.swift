@@ -7,21 +7,29 @@ final class AppSettings: ObservableObject {
     @Published var selectedProviderIndex: Int { didSet { persist() } }
     @Published var systemPrompt: String { didSet { persist() } }
     @Published var enableWebSearch: Bool { didSet { persist() } }
+    @Published var customBaseURL: String { didSet { persist() } }
+    @Published var customModelName: String { didSet { persist() } }
+    @Published var useCustomEndpoint: Bool { didSet { persist() } }
 
     private let defaults = UserDefaults.standard
-    private let key = "app_settings_v2"
+    private let key = "app_settings_v3"
 
     private init() {
         if let data = defaults.dictionary(forKey: key) {
             self.selectedProviderIndex = data["providerIndex"] as? Int ?? 0
             self.systemPrompt = data["sysPrompt"] as? String ?? "你是一个有帮助的中文 AI 助手。回答时如果使用了联网搜索资料，请在末尾列出参考来源。"
             self.enableWebSearch = data["webSearch"] as? Bool ?? false
+            self.customBaseURL = data["customBase"] as? String ?? ""
+            self.customModelName = data["customModel"] as? String ?? ""
+            self.useCustomEndpoint = data["useCustom"] as? Bool ?? false
         } else {
             self.selectedProviderIndex = 0
             self.systemPrompt = "你是一个有帮助的中文 AI 助手。回答时如果使用了联网搜索资料，请在末尾列出参考来源。"
             self.enableWebSearch = false
+            self.customBaseURL = ""
+            self.customModelName = ""
+            self.useCustomEndpoint = false
         }
-        // Clamp index in case provider list shrank
         if selectedProviderIndex >= LLMProvider.builtin.count {
             selectedProviderIndex = 0
         }
@@ -31,7 +39,10 @@ final class AppSettings: ObservableObject {
         defaults.set([
             "providerIndex": selectedProviderIndex,
             "sysPrompt": systemPrompt,
-            "webSearch": enableWebSearch
+            "webSearch": enableWebSearch,
+            "customBase": customBaseURL,
+            "customModel": customModelName,
+            "useCustom": useCustomEndpoint
         ], forKey: key)
     }
 
@@ -41,10 +52,24 @@ final class AppSettings: ObservableObject {
     }
 
     func currentConfig() -> LLMConfig {
-        let key = KeychainManager.shared.get(provider.placeholderKey) ?? ""
-        return LLMConfig(baseURL: provider.defaultBaseURL,
+        let p = provider
+        let key = KeychainManager.shared.get(p.placeholderKey) ?? ""
+        let base: String
+        let model: String
+        if useCustomEndpoint {
+            base = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? p.defaultBaseURL
+                : customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            model = customModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? p.defaultModel
+                : customModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            base = p.defaultBaseURL
+            model = p.defaultModel
+        }
+        return LLMConfig(baseURL: base,
                         apiKey: key,
-                        modelName: provider.defaultModel,
+                        modelName: model,
                         temperature: 0.7,
                         maxTokens: 2048)
     }
