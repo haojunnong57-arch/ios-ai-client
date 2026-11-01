@@ -4,6 +4,7 @@ struct EmptyChatView: View {
     @EnvironmentObject var settings: AppSettings
     let onStart: () -> Void
     let onGoModels: () -> Void
+    let onStartVoice: () -> Void
 
     private var hasKey: Bool {
         let key = KeychainManager.shared.get(settings.provider.placeholderKey) ?? ""
@@ -53,6 +54,14 @@ struct EmptyChatView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button(action: onStartVoice) {
+                    Label("语音通话", systemImage: "waveform.circle.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
                 .controlSize(.large)
 
                 if !hasKey {
