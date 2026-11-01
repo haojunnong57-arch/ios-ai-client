@@ -1,0 +1,57 @@
+name: Env Probe
+
+# 第三阶段：最小化环境验证工作流
+# 只检查 macOS Runner、Xcode、Swift、iOS SDK 版本，不创建正式 iOS 工程。
+# 公开仓库，使用免费标准 macOS Runner。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/env-probe.yml'
+
+jobs:
+  probe:
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - name: System info
+        run: |
+          echo "## Runner 系统信息"
+          uname -a
+          sw_vers
+          echo "CPU: $(sysctl -n hw.ncpu) 核, 内存: $(($(sysctl -n hw.memsize)/1024/1024/1024)) GB"
+          df -h / | tail -1
+
+      - name: Xcode 版本
+        run: |
+          echo "## Xcode"
+          xcodebuild -version
+          echo "--- 已安装 Xcode 列表 ---"
+          ls /Applications | grep -i xcode
+
+      - name: Swift 版本
+        run: |
+          echo "## Swift"
+          swift --version
+
+      - name: 已安装 iOS SDK
+        run: |
+          echo "## iOS SDK 路径"
+          xcodebuild -showsdks | grep -i ios
+
+      - name: 可用 Simulator
+        run: |
+          echo "## 可用 iOS Simulator"
+          xcrun simctl list devices available | grep -i "iPhone" | head -10
+
+      - name: 签名身份（探测免费签名能力）
+        run: |
+          echo "## 钥匙串中的签名身份"
+          security find-identity -v -p codesigning || echo "无签名身份（符合预期：云端 runner 无 Apple ID 登录）"
+
+      - name: 可用 Xcode 版本列表
+        run: |
+          echo "## xcode-select 路径"
+          xcode-select -p
