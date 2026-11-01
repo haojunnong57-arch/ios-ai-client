@@ -33,9 +33,10 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Build Unsigned IPA
+      - name: Build Unsigned IPA (robust)
         run: |
           set -e
+          # Archive without signing
           xcodebuild archive \
             -project AIAggregate.xcodeproj \
             -scheme AIAggregate \
@@ -45,16 +46,31 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PRODUCT_NAME=AIAggregate
 
           APP_PATH="build/AIAggregate.xcarchive/Products/Applications/AIAggregate.app"
+          echo "=== App contents ==="
+          ls -la "$APP_PATH"
+          echo "=== Info.plist CFBundleExecutable ==="
+          plutil -extract CFBundleExecutable raw "$APP_PATH/Info.plist" || true
+          # Ensure executable key exists (fallback)
+          if ! plutil -extract CFBundleExecutable raw "$APP_PATH/Info.plist" >/dev/null 2>&1; then
+            echo "Injecting CFBundleExecutable"
+            plutil -insert CFBundleExecutable -string AIAggregate "$APP_PATH/Info.plist"
+          fi
+          # Make sure binary is executable
+          chmod +x "$APP_PATH/AIAggregate" || true
+
           mkdir -p build/Payload
           cp -R "$APP_PATH" build/Payload/
           cd build
           zip -r AIAggregate-unsigned.ipa Payload
           ls -lh AIAggregate-unsigned.ipa
+          # Verify structure
+          unzip -l AIAggregate-unsigned.ipa | head -20
 
-      - name: Upload IPA (Actions artifact, 30-day retention)
+      - name: Upload IPA (Actions artifact)
         uses: actions/upload-artifact@v4
         with:
           name: AIAggregate-unsigned-ipa
@@ -62,7 +78,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish unsigned IPA to Release (stable latest link)
+      - name: Publish unsigned IPA to Release (ci-unsigned-latest)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -71,17 +87,18 @@ jobs:
           gh release create "ci-unsigned-latest" \
             --title "Unsigned build $(date -u +%Y%m%d-%H%M%S)" \
             --prerelease \
-            --notes "GitHub Actions 自动构建的未签名 IPA。未签名、不可直接安装，请用全能签等工具重签后使用。" \
+            --notes "修复 CFBundleExecutable，支持全能签导入。黑白高级图标后续补全。未签名 IPA，请用全能签重签安装。" \
             build/AIAggregate-unsigned.ipa
 
-      - name: Publish v2.0 unsigned IPA (versioned stable)
+      - name: Publish versioned release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          gh release delete "v2.0" -y --cleanup-tag || true
-          gh release create "v2.0" \
-            --title "2.0.0 未签名构建" \
+          TAG="v2.1.1"
+          gh release delete "$TAG" -y --cleanup-tag || true
+          gh release create "$TAG" \
+            --title "2.1.1 修复导入 + 局域网权限" \
             --prerelease \
-            --notes "2.0：API Key 状态校验与空会话引导、界面按 iPhone 高屏比例自适应。未签名 IPA，需全能签重签后使用。" \
+            --notes "修复全能签「主可执行文件不可用」问题（补充 CFBundleExecutable）。已声明本地网络权限。支持局域网 7B 模型。未签名，需重签后安装。" \
             build/AIAggregate-unsigned.ipa
