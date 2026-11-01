@@ -17,6 +17,15 @@ struct ChatView: View {
                         ForEach(vm.session.messages) { msg in
                             MessageRow(message: msg).id(msg.id)
                         }
+                        if vm.isSearching {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                Text("正在联网搜索…")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(8)
+                        }
                         if let err = vm.errorMessage {
                             Text(err)
                                 .font(.footnote)
@@ -38,24 +47,44 @@ struct ChatView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
-            TextField("输入消息…", text: $vm.inputText, axis: .vertical)
-                .lineLimit(1...5)
-                .padding(10)
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18))
+        VStack(spacing: 8) {
+            // Search toggle
+            HStack {
+                Toggle(isOn: $settings.enableWebSearch) {
+                    Label("联网搜索", systemImage: settings.enableWebSearch ? "globe" : "globe")
+                        .font(.footnote)
+                }
+                .toggleStyle(.button)
+                .tint(settings.enableWebSearch ? .accentColor : .secondary)
+                Spacer()
+                Text(settings.provider.name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
 
-            if vm.isGenerating {
-                Button { vm.stop() } label: {
-                    Image(systemName: "stop.circle.fill").font(.title2).foregroundStyle(.red)
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("输入消息…", text: $vm.inputText, axis: .vertical)
+                    .lineLimit(1...5)
+                    .padding(12)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+
+                if vm.isGenerating {
+                    Button { vm.stop() } label: {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.red)
+                    }
+                } else {
+                    Button { vm.send() } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.title2)
+                    }
+                    .disabled(vm.inputText.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
-            } else {
-                Button { vm.send() } label: {
-                    Image(systemName: "arrow.up.circle.fill").font(.title2)
-                }
-                .disabled(vm.inputText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding()
-        .background(.ultraThinMaterial)
+        .background(.regularMaterial)
     }
 }
