@@ -28,8 +28,10 @@ final class ChatViewModel: ObservableObject {
         guard !text.isEmpty, !isGenerating else { return }
 
         let config = settings.currentConfig()
-        guard !config.apiKey.trimmingCharacters(in: .whitespaces).isEmpty else {
-            errorMessage = "未填写当前服务商「\(settings.provider.name)」的 API Key，请到「模型」页保存后再发送。"
+        let provider = settings.provider
+        // 本地/局域网服务商允许空 Key
+        if !provider.isLocal && config.apiKey.trimmingCharacters(in: .whitespaces).isEmpty {
+            errorMessage = "未填写当前服务商「\(provider.name)」的 API Key，请到「模型」页保存后再发送。"
             return
         }
 
@@ -84,7 +86,14 @@ final class ChatViewModel: ObservableObject {
 
     func regenerate() {
         guard !isGenerating else { return }
-        session.messages.removeAll(where: { $0.role == .assistant && !$0.content.isEmpty })
-        send()
+        // 移除最后一条空或流式 assistant 消息后重新发送最后一条用户消息
+        if let lastIdx = session.messages.lastIndex(where: { $0.role == .assistant }) {
+            session.messages.remove(at: lastIdx)
+        }
+        if let lastUser = session.messages.last(where: { $0.role == .user }) {
+            inputText = lastUser.content
+            session.messages.removeAll(where: { $0.id == lastUser.id })
+            send()
+        }
     }
 }
