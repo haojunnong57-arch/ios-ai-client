@@ -1,7 +1,18 @@
 name: AIAggregate
-
 options:
   bundleIdPrefix: com.haojunnong
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: zh-Hans
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    GENERATE_INFOPLIST_FILE: "NO"
 
 targets:
   AIAggregate:
@@ -9,27 +20,27 @@ targets:
     platform: iOS
     deploymentTarget: "26.0"
     sources:
-      - AIAggregate
+      - path: AIAggregate
+    info:
+      path: AIAggregate/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.haojunnong.aichat
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
-        CODE_SIGNING_ALLOWED: "NO"
-        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        INFOPLIST_FILE: AIAggregate/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
 
   AIAggregateTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "26.0"
     sources:
-      - AIAggregateTests
+      - path: AIAggregateTests
     dependencies:
       - target: AIAggregate
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.haojunnong.aichatTests
-        CODE_SIGNING_ALLOWED: "NO"
+        PRODUCT_BUNDLE_IDENTIFIER: com.haojunnong.aichat.tests
 
 schemes:
   AIAggregate:
@@ -39,3 +50,4 @@ schemes:
     test:
       targets:
         - AIAggregateTests
+      gatherCoverageData: false
