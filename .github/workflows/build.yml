@@ -20,8 +20,12 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: List sources
+        run: find AIAggregate -name "*.swift" | sort
+
       - name: Archive
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project AIAggregate.xcodeproj \
             -scheme AIAggregate \
@@ -32,7 +36,17 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            PRODUCT_NAME=AIAggregate
+            PRODUCT_NAME=AIAggregate \
+            2>&1 | tee build.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Show errors if failed
+        if: failure()
+        run: |
+          echo "==== ERROR LINES ===="
+          grep -n "error:" build.log | head -80 || true
+          echo "==== LAST 80 LINES ===="
+          tail -80 build.log || true
 
       - name: Package IPA
         run: |
@@ -57,4 +71,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete ci-unsigned-latest -y --cleanup-tag || true
-          gh release create ci-unsigned-latest --title "build $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "unsigned IPA" build/AIAggregate-unsigned.ipa
+          gh release create ci-unsigned-latest --title "build $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "v2.4 liquid glass + search" build/AIAggregate-unsigned.ipa
+          gh release delete v2.4.0 -y --cleanup-tag || true
+          gh release create v2.4.0 --title "2.4.0 Liquid Glass + Search" --prerelease --notes "悬浮玻璃底栏 + 独立搜索页 + 内置浏览器" build/AIAggregate-unsigned.ipa
