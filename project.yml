@@ -30,3 +30,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.haojunnong.aichatTests
         CODE_SIGNING_ALLOWED: "NO"
+
+schemes:
+  AIAggregate:
+    build:
+      targets:
+        AIAggregate: all
+    test:
+      targets:
+        - AIAggregateTests

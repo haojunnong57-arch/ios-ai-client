@@ -24,22 +24,22 @@ jobs:
       - name: List schemes
         run: xcodebuild -project AIAggregate.xcodeproj -list
 
+      - name: List simulators
+        run: xcrun simctl list devices available | head -30
+
       - name: Build for Simulator
         run: |
           set +e
           xcodebuild build \
             -project AIAggregate.xcodeproj \
             -scheme AIAggregate \
-            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -destination 'generic/platform=iOS Simulator' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO > build.log 2>&1
-          echo "BUILD_EXIT=$?"
-          tail -60 build.log
+          BUILD_RC=$?
+          echo "BUILD_EXIT=$BUILD_RC"
+          echo "----- LAST 80 LINES -----"
+          tail -80 build.log
+          echo "----- ERROR LINES -----"
+          grep -i "error:" build.log | head -20
           exit 0
-
-      - name: Upload build log
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-          if-no-files-found: warn
