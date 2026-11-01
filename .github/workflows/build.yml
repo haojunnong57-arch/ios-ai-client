@@ -13,37 +13,48 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Setup
+
+      - name: Install tools
+        run: brew install xcodegen || true
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Archive
         run: |
-          brew install xcodegen || true
-          xcodebuild -version || true
-      - name: Generate and Archive
+          xcodebuild archive \
+            -project AIAggregate.xcodeproj \
+            -scheme AIAggregate \
+            -configuration Release \
+            -archivePath build/AIAggregate.xcarchive \
+            -destination generic/platform=iOS \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PRODUCT_NAME=AIAggregate
+
+      - name: Package IPA
         run: |
-          xcodegen generate
-          xcodebuild archive -project AIAggregate.xcodeproj -scheme AIAggregate -configuration Release -archivePath build/AIAggregate.xcarchive -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" || true
           APP="build/AIAggregate.xcarchive/Products/Applications/AIAggregate.app"
-          if [ -d "$APP" ]; then
-            /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AIAggregate" "$APP/Info.plist" 2>/dev/null || true
-            mkdir -p build/Payload
-            cp -a "$APP" build/Payload/
-            cd build && zip -r -X AIAggregate-unsigned.ipa Payload
-            ls -lh AIAggregate-unsigned.ipa
-          else
-            echo "Archive failed, listing build dir"
-            find build -type f | head -20 || true
-          fi
-      - name: Upload
+          ls -la "$APP" || exit 1
+          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AIAggregate" "$APP/Info.plist" 2>/dev/null || true
+          chmod +x "$APP/AIAggregate" || true
+          mkdir -p build/Payload
+          cp -a "$APP" build/Payload/
+          cd build
+          zip -r -X AIAggregate-unsigned.ipa Payload
+          ls -lh AIAggregate-unsigned.ipa
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: IPA
+          name: AIAggregate-unsigned-ipa
           path: build/AIAggregate-unsigned.ipa
-          if-no-files-found: warn
-      - name: Release
-        if: success()
+
+      - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -f build/AIAggregate-unsigned.ipa ]; then
-            gh release delete ci-unsigned-latest -y --cleanup-tag || true
-            gh release create ci-unsigned-latest --title "build $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "unsigned IPA" build/AIAggregate-unsigned.ipa
-          fi
+          gh release delete ci-unsigned-latest -y --cleanup-tag || true
+          gh release create ci-unsigned-latest --title "build $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "unsigned IPA" build/AIAggregate-unsigned.ipa
