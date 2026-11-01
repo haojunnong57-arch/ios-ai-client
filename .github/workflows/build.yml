@@ -19,7 +19,7 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate project
-        run: xcodegen generate --verbose
+        run: xcodegen generate
 
       - name: Build for Simulator
         run: |
@@ -29,7 +29,15 @@ jobs:
             -scheme AIAggregate \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
             -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee build.log | tail -100
+          echo "::group::Full build log"
+          cat build.log
+          echo "::endgroup::"
+          if grep -q "error:" build.log; then
+            echo "## Build Errors" >> $GITHUB_STEP_SUMMARY
+            grep -B1 "error:" build.log | head -50 >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
       - name: Run Unit Tests
         run: |
@@ -38,7 +46,9 @@ jobs:
             -project AIAggregate.xcodeproj \
             -scheme AIAggregate \
             -destination 'platform=iOS Simulator,name=iPhone 17' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee test.log | tail -50
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          grep -E "Test Suite|Executed|error:|passed|failed" test.log | head -30 >> $GITHUB_STEP_SUMMARY
 
       - name: Build Unsigned IPA
         run: |
