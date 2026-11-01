@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>$(EXECUTABLE_NAME)</string>
+	<string>AIAggregate</string>
 	<key>CFBundleName</key>
 	<string>AIAggregate</string>
 	<key>CFBundleDisplayName</key>
@@ -30,6 +30,8 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<key>MinimumOSVersion</key>
+	<string>18.0</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
