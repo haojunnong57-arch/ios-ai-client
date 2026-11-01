@@ -62,7 +62,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish unsigned IPA to Release (stable link)
+      - name: Publish unsigned IPA to Release (stable latest link)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -72,4 +72,16 @@ jobs:
             --title "Unsigned build $(date -u +%Y%m%d-%H%M%S)" \
             --prerelease \
             --notes "GitHub Actions 自动构建的未签名 IPA。未签名、不可直接安装，请用全能签等工具重签后使用。" \
+            build/AIAggregate-unsigned.ipa
+
+      - name: Publish v2.0 unsigned IPA (versioned stable)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          gh release delete "v2.0" -y --cleanup-tag || true
+          gh release create "v2.0" \
+            --title "2.0.0 未签名构建" \
+            --prerelease \
+            --notes "2.0：API Key 状态校验与空会话引导、界面按 iPhone 高屏比例自适应。未签名 IPA，需全能签重签后使用。" \
             build/AIAggregate-unsigned.ipa

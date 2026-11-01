@@ -9,7 +9,10 @@ struct OpenAIStreamingClient: LLMClient, Sendable {
 
     func streamChat(messages: [ChatMessage],
                     config: LLMConfig) async throws -> AsyncThrowingStream<String, Error> {
-        guard let url = URL(string: config.baseURL + "/chat/completions") else {
+        let trimmedBase = config.baseURL
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"/+$"#, with: "", options: .regularExpression)
+        guard let url = URL(string: trimmedBase + "/chat/completions") else {
             throw AppError.invalidURL
         }
         var request = URLRequest(url: url)

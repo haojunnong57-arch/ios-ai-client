@@ -26,6 +26,13 @@ final class ChatViewModel: ObservableObject {
         guard let settings, let store else { return }
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isGenerating else { return }
+
+        let config = settings.currentConfig()
+        guard !config.apiKey.trimmingCharacters(in: .whitespaces).isEmpty else {
+            errorMessage = "未填写当前服务商「\(settings.provider.name)」的 API Key，请到「模型」页保存后再发送。"
+            return
+        }
+
         inputText = ""
         errorMessage = nil
 
@@ -39,10 +46,10 @@ final class ChatViewModel: ObservableObject {
         session.messages = msgs
         isGenerating = true
 
-        let config = settings.currentConfig()
+        let finalConfig = config
         generateTask = Task {
             do {
-                let stream = try await client.streamChat(messages: msgs, config: config)
+                let stream = try await client.streamChat(messages: msgs, config: finalConfig)
                 for try await partial in stream {
                     if Task.isCancelled { break }
                     if let i = session.messages.lastIndex(where: { $0.role == .assistant && $0.isStreaming }) {

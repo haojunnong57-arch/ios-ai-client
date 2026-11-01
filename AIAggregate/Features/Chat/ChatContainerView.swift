@@ -4,6 +4,7 @@ struct ChatContainerView: View {
     @EnvironmentObject var store: SessionStore
     @EnvironmentObject var settings: AppSettings
     @Binding var sessionID: UUID?
+    let onGoModels: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -12,10 +13,11 @@ struct ChatContainerView: View {
                    let idx = store.sessions.firstIndex(where: { $0.id == sid }) {
                     ChatView(session: store.sessions[idx])
                 } else {
-                    EmptyChatView { startNewChat() }
+                    EmptyChatView(onStart: startNewChat, onGoModels: onGoModels)
                 }
             }
             .navigationTitle("AI 助手")
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
