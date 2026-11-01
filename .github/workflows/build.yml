@@ -18,7 +18,6 @@ jobs:
       - name: Select Xcode
         run: |
           ls /Applications/ | grep -i xcode || true
-          # Prefer newest available
           if [ -d /Applications/Xcode_16.app ]; then
             sudo xcode-select -s /Applications/Xcode_16.app
           elif [ -d /Applications/Xcode.app ]; then
@@ -29,34 +28,33 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen || true
 
-      - name: Create AppIcon (black-white advanced)
+      - name: Create AppIcon
         run: |
           set -e
           mkdir -p AIAggregate/Assets.xcassets/AppIcon.appiconset
 
-          python3 << 'PY'
-          from struct import pack
-          import zlib, os
-          def png_chunk(tag, data):
-              return pack(">I", len(data)) + tag + data + pack(">I", zlib.crc32(tag + data) & 0xffffffff)
-          w = h = 1024
-          raw = b""
-          for y in range(h):
-              raw += b"\x00"
-              for x in range(w):
-                  dx, dy = x - 512, y - 512
-                  r2 = dx*dx + dy*dy
-                  if 180*180 < r2 < 220*220 or 300*300 < r2 < 340*340 or r2 < 60*60:
-                      raw += b"\xff\xff\xff"
-                  else:
-                      raw += b"\x0a\x0a\x0a"
-          ihdr = pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
-          data = b"\x89PNG\r\n\x1a\n" + png_chunk(b"IHDR", ihdr) + png_chunk(b"IDAT", zlib.compress(raw, 9)) + png_chunk(b"IEND", b"")
-          open("/tmp/icon1024.png", "wb").write(data)
-          print("icon1024.png size", os.path.getsize("/tmp/icon1024.png"))
-          PY
+          python3 -c "
+from struct import pack
+import zlib, os
+def png_chunk(tag, data):
+    return pack('>I', len(data)) + tag + data + pack('>I', zlib.crc32(tag + data) & 0xffffffff)
+w = h = 1024
+raw = b''
+for y in range(h):
+    raw += b'\x00'
+    for x in range(w):
+        dx, dy = x - 512, y - 512
+        r2 = dx*dx + dy*dy
+        if 180*180 < r2 < 220*220 or 300*300 < r2 < 340*340 or r2 < 60*60:
+            raw += b'\xff\xff\xff'
+        else:
+            raw += b'\x0a\x0a\x0a'
+ihdr = pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)
+data = b'\x89PNG\r\n\x1a\n' + png_chunk(b'IHDR', ihdr) + png_chunk(b'IDAT', zlib.compress(raw, 9)) + png_chunk(b'IEND', b'')
+open('/tmp/icon1024.png', 'wb').write(data)
+print('icon size', os.path.getsize('/tmp/icon1024.png'))
+"
 
-          # Resize with sips
           sips -z 20 20 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20.png
           sips -z 40 40 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@2x.png
           sips -z 60 60 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@3x.png
@@ -73,7 +71,7 @@ jobs:
           sips -z 167 167 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-83.5@2x.png
           sips -z 1024 1024 /tmp/icon1024.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-1024.png
 
-          cat > AIAggregate/Assets.xcassets/AppIcon.appiconset/Contents.json << 'EOF'
+          cat > AIAggregate/Assets.xcassets/AppIcon.appiconset/Contents.json << 'JSON'
 {
   "images" : [
     {"filename" : "icon-20.png", "idiom" : "iphone", "scale" : "1x", "size" : "20x20"},
@@ -94,13 +92,14 @@ jobs:
   ],
   "info" : {"author" : "xcode", "version" : 1}
 }
-EOF
-          cat > AIAggregate/Assets.xcassets/Contents.json << 'EOF'
+JSON
+
+          cat > AIAggregate/Assets.xcassets/Contents.json << 'JSON'
 {
   "info" : {"author" : "xcode", "version" : 1}
 }
-EOF
-          echo "AppIcon files:"
+JSON
+
           ls -la AIAggregate/Assets.xcassets/AppIcon.appiconset/
 
       - name: Generate project
@@ -115,7 +114,7 @@ EOF
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO || true
 
-      - name: Archive & package unsigned IPA
+      - name: Archive and package IPA
         run: |
           set -e
           xcodebuild archive \
@@ -132,10 +131,9 @@ EOF
 
           APP="build/AIAggregate.xcarchive/Products/Applications/AIAggregate.app"
           echo "=== App structure ==="
-          find "$APP" -maxdepth 3 -type f | head -40
           ls -la "$APP"
+          find "$APP" -maxdepth 2 -type f | head -20
 
-          # Force CFBundleExecutable
           /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AIAggregate" "$APP/Info.plist" 2>/dev/null || \
           /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string AIAggregate" "$APP/Info.plist"
 
@@ -146,25 +144,27 @@ EOF
           cp -a "$APP" build/Payload/
 
           cd build
-          ditto -c -k --sequesterRsrc --keepParent Payload AIAggregate-unsigned.ipa 2>/dev/null || zip -r -X AIAggregate-unsigned.ipa Payload
+          zip -r -X AIAggregate-unsigned.ipa Payload
 
           ls -lh AIAggregate-unsigned.ipa
-          unzip -l AIAggregate-unsigned.ipa | head -30
+          unzip -l AIAggregate-unsigned.ipa | head -20
 
-          python3 -c '
+      - name: Verify IPA
+        run: |
+          python3 -c "
 import zipfile, plistlib, os, tempfile
-z = zipfile.ZipFile("AIAggregate-unsigned.ipa")
-assert any(n.endswith(".app/AIAggregate") for n in z.namelist()), "missing binary"
+z = zipfile.ZipFile('build/AIAggregate-unsigned.ipa')
+print('files:', [n for n in z.namelist() if n.endswith('AIAggregate') or n.endswith('Info.plist')])
 with tempfile.TemporaryDirectory() as d:
   z.extractall(d)
-  app = os.path.join(d, "Payload", "AIAggregate.app")
-  assert os.path.isfile(os.path.join(app, "AIAggregate"))
-  p = plistlib.load(open(os.path.join(app, "Info.plist"), "rb"))
-  print("CFBundleExecutable =", p.get("CFBundleExecutable"))
-  print("Binary size:", os.path.getsize(os.path.join(app, "AIAggregate")))
-  print("Files in .app:", os.listdir(app))
-  print("VERIFY OK")
-'
+  app = os.path.join(d, 'Payload', 'AIAggregate.app')
+  assert os.path.isfile(os.path.join(app, 'AIAggregate')), 'missing binary'
+  p = plistlib.load(open(os.path.join(app, 'Info.plist'), 'rb'))
+  print('CFBundleExecutable =', p.get('CFBundleExecutable'))
+  print('Binary size:', os.path.getsize(os.path.join(app, 'AIAggregate')))
+  print('App contents:', os.listdir(app))
+  print('VERIFY OK')
+"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -185,10 +185,10 @@ with tempfile.TemporaryDirectory() as d:
           gh release create "ci-unsigned-latest" \
             --title "Unsigned $(date -u +%Y%m%d-%H%M%S)" \
             --prerelease \
-            --notes "修复 runner、黑白高级图标、网络权限、本地7B支持。用全能签重签安装。" \
+            --notes "修复构建、黑白图标、网络权限、本地7B支持。用全能签重签安装。" \
             build/AIAggregate-unsigned.ipa
           gh release create "v2.2.0" \
             --title "2.2.0 图标 + 网络 + 本地模型" \
             --prerelease \
-            --notes "包含黑白高级 App 图标、完整网络权限声明、局域网7B模型支持。" \
+            --notes "包含黑白高级 App 图标、完整网络权限、局域网7B模型支持。" \
             build/AIAggregate-unsigned.ipa
