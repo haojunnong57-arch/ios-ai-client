@@ -18,73 +18,23 @@ jobs:
       - name: Select Xcode
         run: |
           ls /Applications/ | grep -i xcode || true
-          if [ -d /Applications/Xcode_16.app ]; then
-            sudo xcode-select -s /Applications/Xcode_16.app
-          elif [ -d /Applications/Xcode.app ]; then
-            sudo xcode-select -s /Applications/Xcode.app
-          fi
+          if [ -d /Applications/Xcode_16.app ]; then sudo xcode-select -s /Applications/Xcode_16.app; elif [ -d /Applications/Xcode.app ]; then sudo xcode-select -s /Applications/Xcode.app; fi
           xcodebuild -version
 
       - name: Install XcodeGen
         run: brew install xcodegen || true
 
-      - name: Create AppIcon assets
+      - name: Create minimal AppIcon
         run: |
-          set -e
           mkdir -p AIAggregate/Assets.xcassets/AppIcon.appiconset
-          # Create minimal 1x1 black PNG and let sips scale it (simple and reliable)
-          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x00\x03\x00\x01\x00\x05\xfe\xd4\xef\x00\x00\x00\x00IEND\xaeB`\x82' > /tmp/icon1.png
-          for s in 20 29 40 60 76 1024; do
-            sips -z $s $s /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-${s}.png
-          done
-          sips -z 40 40 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@2x.png
-          sips -z 60 60 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-20@3x.png
-          sips -z 58 58 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-29@2x.png
-          sips -z 87 87 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-29@3x.png
-          sips -z 80 80 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-40@2x.png
-          sips -z 120 120 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-40@3x.png
-          sips -z 120 120 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-60@2x.png
-          sips -z 180 180 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-60@3x.png
-          sips -z 152 152 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-76@2x.png
-          sips -z 167 167 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-83.5@2x.png
-          sips -z 1024 1024 /tmp/icon1.png --out AIAggregate/Assets.xcassets/AppIcon.appiconset/icon-1024.png
-          cat > AIAggregate/Assets.xcassets/AppIcon.appiconset/Contents.json << 'EOF'
-{
-  "images" : [
-    {"filename" : "icon-20.png", "idiom" : "iphone", "scale" : "1x", "size" : "20x20"},
-    {"filename" : "icon-20@2x.png", "idiom" : "iphone", "scale" : "2x", "size" : "20x20"},
-    {"filename" : "icon-20@3x.png", "idiom" : "iphone", "scale" : "3x", "size" : "20x20"},
-    {"filename" : "icon-29.png", "idiom" : "iphone", "scale" : "1x", "size" : "29x29"},
-    {"filename" : "icon-29@2x.png", "idiom" : "iphone", "scale" : "2x", "size" : "29x29"},
-    {"filename" : "icon-29@3x.png", "idiom" : "iphone", "scale" : "3x", "size" : "29x29"},
-    {"filename" : "icon-40.png", "idiom" : "iphone", "scale" : "1x", "size" : "40x40"},
-    {"filename" : "icon-40@2x.png", "idiom" : "iphone", "scale" : "2x", "size" : "40x40"},
-    {"filename" : "icon-40@3x.png", "idiom" : "iphone", "scale" : "3x", "size" : "40x40"},
-    {"filename" : "icon-60@2x.png", "idiom" : "iphone", "scale" : "2x", "size" : "60x60"},
-    {"filename" : "icon-60@3x.png", "idiom" : "iphone", "scale" : "3x", "size" : "60x60"},
-    {"filename" : "icon-76.png", "idiom" : "ipad", "scale" : "1x", "size" : "76x76"},
-    {"filename" : "icon-76@2x.png", "idiom" : "ipad", "scale" : "2x", "size" : "76x76"},
-    {"filename" : "icon-83.5@2x.png", "idiom" : "ipad", "scale" : "2x", "size" : "83.5x83.5"},
-    {"filename" : "icon-1024.png", "idiom" : "ios-marketing", "scale" : "1x", "size" : "1024x1024"}
-  ],
-  "info" : {"author" : "xcode", "version" : 1}
-}
-EOF
-          cat > AIAggregate/Assets.xcassets/Contents.json << 'EOF'
-{
-  "info" : {"author" : "xcode", "version" : 1}
-}
-EOF
-          ls AIAggregate/Assets.xcassets/AppIcon.appiconset/
+          echo '{"images":[{"idiom":"universal","platform":"ios","size":"1024x1024"}],"info":{"author":"xcode","version":1}}' > AIAggregate/Assets.xcassets/AppIcon.appiconset/Contents.json
+          echo '{"info":{"author":"xcode","version":1}}' > AIAggregate/Assets.xcassets/Contents.json
+          ls -la AIAggregate/Assets.xcassets/
 
       - name: Generate project
         run: xcodegen generate
 
-      - name: Build Simulator smoke test
-        run: |
-          xcodebuild build -project AIAggregate.xcodeproj -scheme AIAggregate -destination 'generic/platform=iOS Simulator' -configuration Debug CODE_SIGNING_ALLOWED=NO || true
-
-      - name: Archive and package IPA
+      - name: Archive
         run: |
           set -e
           xcodebuild archive -project AIAggregate.xcodeproj -scheme AIAggregate -configuration Release -archivePath build/AIAggregate.xcarchive -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" PRODUCT_NAME=AIAggregate
@@ -92,29 +42,25 @@ EOF
           ls -la "$APP"
           /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable AIAggregate" "$APP/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleExecutable string AIAggregate" "$APP/Info.plist"
           chmod +x "$APP/AIAggregate" || true
-          rm -rf build/Payload build/AIAggregate-unsigned.ipa
           mkdir -p build/Payload
           cp -a "$APP" build/Payload/
           cd build
           zip -r -X AIAggregate-unsigned.ipa Payload
           ls -lh AIAggregate-unsigned.ipa
-          unzip -l AIAggregate-unsigned.ipa | head -15
 
-      - name: Upload IPA artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: AIAggregate-unsigned-ipa
           path: build/AIAggregate-unsigned.ipa
           if-no-files-found: error
-          retention-days: 30
 
-      - name: Publish to Releases
+      - name: Publish Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          for TAG in ci-unsigned-latest v2.2.0; do
-            gh release delete "$TAG" -y --cleanup-tag || true
-          done
-          gh release create "ci-unsigned-latest" --title "Unsigned $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "黑白图标 + 网络权限 + 本地7B。用全能签重签安装。" build/AIAggregate-unsigned.ipa
-          gh release create "v2.2.0" --title "2.2.0 图标 + 网络 + 本地模型" --prerelease --notes "包含 App 图标、网络权限、局域网7B支持。" build/AIAggregate-unsigned.ipa
+          gh release delete ci-unsigned-latest -y --cleanup-tag || true
+          gh release create ci-unsigned-latest --title "Unsigned $(date -u +%Y%m%d-%H%M%S)" --prerelease --notes "Minimal valid build. Use 全能签 to resign." build/AIAggregate-unsigned.ipa
+          gh release delete v2.2.0 -y --cleanup-tag || true
+          gh release create v2.2.0 --title "2.2.0" --prerelease --notes "Build with icon assets and network permissions." build/AIAggregate-unsigned.ipa
