@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct ModelsView: View {
@@ -10,36 +11,37 @@ struct ModelsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("AI 服务商", selection: $settings.selectedProviderIndex) {
-                    ForEach(Array(LLMProvider.builtin.enumerated()), id: \.offset) { idx, p in
-                        Text(p.name).tag(idx)
-                    }
+                TextField("名称（显示用）", text: $settings.customDisplayName)
+                TextField("API Base URL", text: $settings.customBaseURL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                TextField("Model ID（实际请求用）", text: $settings.customModelID)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Picker("API 协议", selection: $settings.customProtocol) {
+                    Text("OpenAI Compatible").tag("OpenAI Compatible")
+                    Text("OpenAI").tag("OpenAI")
+                    Text("自定义").tag("Custom")
                 }
-                .onChange(of: settings.selectedProviderIndex) { _, _ in
-                    loadKey()
-                    status = nil
-                    if settings.provider.name.contains("自定义") {
-                        settings.useCustomEndpoint = true
-                        if settings.customBaseURL.isEmpty {
-                            settings.customBaseURL = settings.provider.defaultBaseURL
-                        }
-                        if settings.customModelName.isEmpty {
-                            settings.customModelName = settings.provider.defaultModel
-                        }
-                    }
-                }
+                TextField("可选 API Path（如 /chat/completions or /v1/chat/completions）", text: $settings.customAPIPath)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
             } header: {
-                Text("选择服务商")
+                Text("自定义模型配置")
+            } footer: {
+                Text("名称用于界面显示，Model ID 用于真实请求。Base URL 必须指向模型服务商接口地址。")
+                    .font(.footnote)
             }
 
             Section {
                 HStack {
                     if showKey {
-                        TextField("sk-...", text: $keyText)
+                        TextField("sk-... 或自己的 API Key", text: $keyText)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                     } else {
-                        SecureField("sk-...", text: $keyText)
+                        SecureField("sk-... 或自己的 API Key", text: $keyText)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
                     }
@@ -49,30 +51,9 @@ struct ModelsView: View {
                     .buttonStyle(.plain)
                 }
             } header: {
-                Text("API Key（密钥）")
+                Text("API Key")
             } footer: {
-                Text("只填密钥本身，不要填到下面的网址栏。")
-                    .font(.footnote)
-            }
-
-            Section {
-                Toggle("使用自定义接口", isOn: $settings.useCustomEndpoint)
-                if settings.useCustomEndpoint {
-                    TextField("https://api.example.com/v1", text: $settings.customBaseURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                    TextField("模型名称，如 deepseek-v4.1-flash-1017", text: $settings.customModelName)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Text("第三方示例\nBase URL: https://moonshot.kk18.chat/v1\n模型: deepseek-v4.1-flash-1017")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("自定义接口")
-            } footer: {
-                Text("Base URL 必须以 http:// 或 https:// 开头。")
+                Text("仅保存到本机 Keychain，不会写死在代码中。")
                     .font(.footnote)
             }
 
@@ -93,69 +74,88 @@ struct ModelsView: View {
                 }
             }
         }
-        .navigationTitle("API 设置")
+        .navigationTitle("模型设置")
         .onAppear { loadKey() }
     }
 
     private func loadKey() {
-        keyText = KeychainManager.shared.get(settings.provider.placeholderKey) ?? ""
+        keyText = KeychainManager.shared.get("custom_api_key") ?? settings.customAPIKey
+        settings.customAPIKey = keyText
+        if settings.customDisplayName.isEmpty { settings.customDisplayName = "My AI" }
+        if settings.customModelID.isEmpty { settings.customModelID = settings.customModelName }
     }
 
     private func saveAndTest() {
-        let trimmed = keyText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        let trimmedKey = keyText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedURL = settings.customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedModelID = settings.customModelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPath = settings.customAPIPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if settings.useCustomEndpoint {
-            let base = settings.customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            if base.lowercased().hasPrefix("sk-") {
-                status = "填错位置：密钥应写在「API Key」，Base URL 应是 https:// 开头的网址"
-                return
-            }
-            if !base.lowercased().hasPrefix("http://") && !base.lowercased().hasPrefix("https://") {
-                status = "Base URL 必须以 https:// 开头"
-                return
-            }
-            if settings.customModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                status = "请填写模型名称"
-                return
-            }
+        guard !trimmedKey.isEmpty else {
+            status = "请输入 API Key"
+            return
+        }
+        guard !trimmedURL.isEmpty else {
+            status = "请输入 Base URL"
+            return
+        }
+        guard !trimmedModelID.isEmpty else {
+            status = "请输入 Model ID"
+            return
+        }
+        guard trimmedURL.lowercased().hasPrefix("http://") || trimmedURL.lowercased().hasPrefix("https://") else {
+            status = "Base URL 必须以 http:// 或 https:// 开头"
+            return
         }
 
-        KeychainManager.shared.set(settings.provider.placeholderKey, value: trimmed)
+        settings.customAPIKey = trimmedKey
+        settings.customModelName = trimmedModelID
+        settings.customModelID = trimmedModelID
+        if settings.customDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            settings.customDisplayName = "My AI"
+        }
+        if !trimmedPath.isEmpty {
+            settings.customAPIPath = trimmedPath
+        }
+
+        KeychainManager.shared.set("custom_api_key", value: trimmedKey)
         isTesting = true
         status = nil
 
         Task {
             let config = settings.currentConfig()
             do {
-                var base = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-                while base.hasSuffix("/") { base.removeLast() }
-                guard let url = URL(string: base + "/chat/completions"), url.scheme == "http" || url.scheme == "https" else {
+                let endpoint = OpenAIStreamingClient.makeEndpointURL(baseURL: config.baseURL, apiPath: config.apiPath)
+                guard let url = endpoint else {
                     await MainActor.run {
                         status = "URL 无效"
                         isTesting = false
                     }
                     return
                 }
+
                 var req = URLRequest(url: url)
                 req.httpMethod = "POST"
                 req.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 req.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
                 req.timeoutInterval = 20
                 let body: [String: Any] = [
-                    "model": config.modelName,
+                    "model": config.modelID,
                     "stream": false,
                     "max_tokens": 8,
-                    "messages": [["role": "user", "content": "hi"]]
+                    "messages": [["role": "user", "content": "hello"]]
                 ]
                 req.httpBody = try JSONSerialization.data(withJSONObject: body)
+
                 let (_, resp) = try await URLSession.shared.data(for: req)
                 let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
                 await MainActor.run {
                     if (200..<300).contains(code) {
                         status = "连接成功"
                     } else if code == 401 {
-                        status = "Key 无效或已过期 (401)"
+                        status = "鉴权失败：Key 或 Model ID 不正确 (401)"
+                    } else if code == 402 || code == 403 {
+                        status = "余额不足或权限受限 (\(code))"
                     } else {
                         status = "连接失败 (HTTP \(code))"
                     }

@@ -7,13 +7,41 @@ struct OpenAIStreamingClient: LLMClient, Sendable {
         self.session = session
     }
 
+    static func makeEndpointURL(baseURL: String, apiPath: String?) -> URL? {
+        let trimmedBase = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedBase = trimmedBase.hasSuffix("/") ? String(trimmedBase.dropLast()) : trimmedBase
+        let defaultPath = "/chat/completions"
+        let candidatePath = (apiPath ?? defaultPath).trimmingCharacters(in: .whitespacesAndNewlines)
+        let fullPath: String
+
+        if candidatePath.lowercased().hasPrefix("http://") || candidatePath.lowercased().hasPrefix("https://") {
+            return URL(string: candidatePath)
+        }
+
+        if candidatePath.lowercased().contains("/chat/completions") {
+            fullPath = candidatePath.hasPrefix("/") ? candidatePath : "/\(candidatePath)"
+            return URL(string: normalizedBase + fullPath)
+        }
+
+        if candidatePath.isEmpty {
+            fullPath = defaultPath
+        } else {
+            fullPath = candidatePath.hasPrefix("/") ? candidatePath : "/\(candidatePath)"
+        }
+
+        if normalizedBase.lowercased().hasSuffix("/chat/completions") {
+            return URL(string: normalizedBase)
+        }
+
+        return URL(string: normalizedBase + fullPath)
+    }
+
     func streamChat(messages: [ChatMessage],
                     config: LLMConfig) async throws -> AsyncThrowingStream<String, Error> {
-        var base = config.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        while base.hasSuffix("/") { base.removeLast() }
-        guard let url = URL(string: base + "/chat/completions") else {
+        guard let url = Self.makeEndpointURL(baseURL: config.baseURL, apiPath: config.apiPath) else {
             throw AppError.invalidURL
         }
+
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -23,7 +51,7 @@ struct OpenAIStreamingClient: LLMClient, Sendable {
         request.timeoutInterval = 60
 
         let payload: [String: Any] = [
-            "model": config.modelName,
+            "model": config.modelID.isEmpty ? config.modelName : config.modelID,
             "stream": true,
             "temperature": config.temperature,
             "max_tokens": config.maxTokens,

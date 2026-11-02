@@ -47,48 +47,74 @@ final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
     @Published var selectedProviderIndex: Int { didSet { persist() } }
+    @Published var customDisplayName: String { didSet { persist() } }
+    @Published var customBaseURL: String { didSet { persist() } }
+    @Published var customAPIKey: String { didSet { persist() } }
+    @Published var customModelID: String { didSet { persist() } }
+    @Published var customProtocol: String { didSet { persist() } }
+    @Published var customAPIPath: String { didSet { persist() } }
     @Published var systemPrompt: String { didSet { persist() } }
     @Published var enableWebSearch: Bool { didSet { persist() } }
-    @Published var customBaseURL: String { didSet { persist() } }
     @Published var customModelName: String { didSet { persist() } }
     @Published var useCustomEndpoint: Bool { didSet { persist() } }
     @Published var themeMode: AppThemeMode { didSet { persist() } }
     @Published var accentPalette: AccentPalette { didSet { persist() } }
 
     private let defaults = UserDefaults.standard
-    private let key = "app_settings_v5"
+    private let key = "app_settings_v6"
 
     private init() {
         if let data = defaults.dictionary(forKey: key) {
             self.selectedProviderIndex = data["providerIndex"] as? Int ?? 0
+            self.customDisplayName = data["displayName"] as? String ?? "My AI"
+            self.customBaseURL = data["customBase"] as? String ?? ""
+            self.customAPIKey = data["customAPIKey"] as? String ?? ""
+            self.customModelID = data["customModelId"] as? String ?? ""
+            self.customProtocol = data["customProtocol"] as? String ?? "OpenAI Compatible"
+            self.customAPIPath = data["customAPIPath"] as? String ?? ""
             self.systemPrompt = data["sysPrompt"] as? String ?? "你是一个有帮助的中文 AI 助手。回答时如果使用了联网搜索资料，请在末尾列出参考来源。"
             self.enableWebSearch = data["webSearch"] as? Bool ?? false
-            self.customBaseURL = data["customBase"] as? String ?? ""
             self.customModelName = data["customModel"] as? String ?? ""
-            self.useCustomEndpoint = data["useCustom"] as? Bool ?? false
+            self.useCustomEndpoint = data["useCustom"] as? Bool ?? true
             self.themeMode = AppThemeMode(rawValue: data["theme"] as? String ?? "") ?? .system
             self.accentPalette = AccentPalette(rawValue: data["accent"] as? String ?? "") ?? .systemBlue
         } else {
             self.selectedProviderIndex = 0
+            self.customDisplayName = "My AI"
+            self.customBaseURL = ""
+            self.customAPIKey = ""
+            self.customModelID = ""
+            self.customProtocol = "OpenAI Compatible"
+            self.customAPIPath = ""
             self.systemPrompt = "你是一个有帮助的中文 AI 助手。回答时如果使用了联网搜索资料，请在末尾列出参考来源。"
             self.enableWebSearch = false
-            self.customBaseURL = ""
             self.customModelName = ""
-            self.useCustomEndpoint = false
+            self.useCustomEndpoint = true
             self.themeMode = .system
             self.accentPalette = .systemBlue
         }
         if selectedProviderIndex >= LLMProvider.builtin.count {
             selectedProviderIndex = 0
         }
+        if customModelName.isEmpty, !customModelID.isEmpty {
+            customModelName = customModelID
+        }
+        if customModelID.isEmpty, !customModelName.isEmpty {
+            customModelID = customModelName
+        }
     }
 
     private func persist() {
         defaults.set([
             "providerIndex": selectedProviderIndex,
+            "displayName": customDisplayName,
+            "customBase": customBaseURL,
+            "customAPIKey": customAPIKey,
+            "customModelId": customModelID,
+            "customProtocol": customProtocol,
+            "customAPIPath": customAPIPath,
             "sysPrompt": systemPrompt,
             "webSearch": enableWebSearch,
-            "customBase": customBaseURL,
             "customModel": customModelName,
             "useCustom": useCustomEndpoint,
             "theme": themeMode.rawValue,
@@ -111,24 +137,25 @@ final class AppSettings: ObservableObject {
 
     func currentConfig() -> LLMConfig {
         let p = provider
-        let key = KeychainManager.shared.get(p.placeholderKey) ?? ""
-        let base: String
-        let model: String
-        if useCustomEndpoint {
-            base = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? p.defaultBaseURL
-                : customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            model = customModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                ? p.defaultModel
-                : customModelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        } else {
-            base = p.defaultBaseURL
-            model = p.defaultModel
-        }
-        return LLMConfig(baseURL: base,
-                        apiKey: key,
-                        modelName: model,
-                        temperature: 0.7,
-                        maxTokens: 2048)
+        let key = customAPIKey.isEmpty ? KeychainManager.shared.get(p.placeholderKey) ?? "" : customAPIKey
+        let base = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? p.defaultBaseURL
+            : customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelID = customModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? (customModelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? p.defaultModel : customModelName)
+            : customModelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayName = customDisplayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "My AI" : customDisplayName
+
+        return LLMConfig(
+            displayName: displayName,
+            baseURL: base,
+            apiKey: key,
+            modelName: modelID,
+            modelID: modelID,
+            protocolType: customProtocol,
+            apiPath: customAPIPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : customAPIPath.trimmingCharacters(in: .whitespacesAndNewlines),
+            temperature: 0.7,
+            maxTokens: 2048
+        )
     }
 }
