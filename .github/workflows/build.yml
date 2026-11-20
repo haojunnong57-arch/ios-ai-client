@@ -17,6 +17,8 @@ jobs:
           persist-credentials: true
 
       - name: Sync v2.9.0 source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
           set -x
@@ -35,7 +37,8 @@ jobs:
             echo "source already up to date"
           else
             git commit -m "sync v2.9.0 source (AI avatar + liquid glass + Instagram skin)"
-            git push origin HEAD:main || true
+            git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/haojunnong57-arch/ios-ai-client.git"
+            git push origin HEAD:main
           fi
           grep -n "MARKETING_VERSION" project.yml
           ls AIAggregate/SharedUI
