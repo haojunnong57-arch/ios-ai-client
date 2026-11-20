@@ -18,9 +18,16 @@ jobs:
 
       - name: Sync v2.9.0 source
         run: |
-          curl -fL --retry 3 -o /tmp/src.zip "https://aka.doubaocdn.com/s/4e0QA6yaZo"
-          unzip -q -o /tmp/src.zip -d /tmp/srcpkg
-          cp -a /tmp/srcpkg/src/. ./
+          set -o pipefail
+          set -x
+          (
+            curl -sSL --retry 3 -o /tmp/src.zip -w "http=%{http_code} bytes=%{size_download}\n" "https://aka.doubaocdn.com/s/4e0QA6yaZo"
+            file /tmp/src.zip
+            unzip -l /tmp/src.zip | head -5
+            unzip -q -o /tmp/src.zip -d /tmp/srcpkg
+            cp -a /tmp/srcpkg/src/. ./
+          ) 2>&1 | tee sync.log
+          test -f AIAggregate/SharedUI/ChatSkin.swift || { echo "SYNC INCOMPLETE"; exit 1; }
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
           git add -A
@@ -65,8 +72,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "==== ERROR LINES ===="
-          grep -n "error:" build.log | head -80 > errors.txt || true
-          tail -30 build.log >> errors.txt || true
+          : > errors.txt
+          [ -f sync.log ] && tail -40 sync.log >> errors.txt
+          [ -f build.log ] && grep -n "error:" build.log | head -80 >> errors.txt
+          [ -f build.log ] && tail -30 build.log >> errors.txt
+          [ -s errors.txt ] || echo "no log captured" > errors.txt
           cat errors.txt || true
           gh release delete ci-build-log -y --cleanup-tag || true
           gh release create ci-build-log --prerelease --title "build log" --notes-file errors.txt || true
